@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knodex</title>
+    <script>
+      // GitHub Pages SPA routing：還原 404.html 傳來的路徑
+      (function() {
+        var p = window.location.search.match(/[?&]p=([^&]*)/);
+        if (p) {
+          window.history.replaceState(null, null, decodeURIComponent(p[1]) + window.location.hash);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

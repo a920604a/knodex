@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script>
+    // GitHub Pages SPA routing：將 404 重導回 index.html 並保留路徑
+    var path = window.location.pathname;
+    var base = '/REPO_NAME'; // 由 deploy.yml 替換
+    var redirect = window.location.origin + base + '/?p=' + encodeURIComponent(path.slice(base.length));
+    window.location.replace(redirect);
+  </script>
+</head>
+</html>

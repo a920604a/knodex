@@ -1,0 +1,97 @@
+import logging
+import re
+import uuid
+from pathlib import Path
+
+import fitz  # PyMuPDF
+import tiktoken
+
+from app.config import settings
+from app.database import AsyncSessionLocal
+from app.models.chunk import DocumentChunk
+from app.models.document import Document
+
+logger = logging.getLogger(__name__)
+
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 100
+ENCODING = tiktoken.get_encoding("cl100k_base")
+
+
+def _clean_text(text: str) -> str:
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _chunk_tokens(tokens: list[int]) -> list[list[int]]:
+    chunks = []
+    start = 0
+    while start < len(tokens):
+        end = min(start + CHUNK_SIZE, len(tokens))
+        chunks.append(tokens[start:end])
+        if end == len(tokens):
+            break
+        start += CHUNK_SIZE - CHUNK_OVERLAP
+    return chunks
+
+
+async def run_ingestion(document_id: str) -> None:
+    doc_uuid = uuid.UUID(document_id)
+    async with AsyncSessionLocal() as db:
+        try:
+            doc = await db.get(Document, doc_uuid)
+            if not doc:
+                logger.warning("Ingestion: document %s not found", document_id)
+                return
+
+            pdf_path = Path(settings.pdf_storage_root) / doc.file_path
+            if not pdf_path.exists():
+                logger.error("Ingestion: PDF file not found at %s", pdf_path)
+                return
+
+            pdf = fitz.open(str(pdf_path))
+            total_pages = len(pdf)
+
+            # Extract text per page
+            pages_text: list[tuple[int, str]] = []
+            for page_num in range(total_pages):
+                page = pdf[page_num]
+                raw = page.get_text()
+                cleaned = _clean_text(raw)
+                if cleaned:
+                    pages_text.append((page_num + 1, cleaned))
+
+            pdf.close()
+
+            if not pages_text:
+                logger.warning("Ingestion: no text layer found in document %s (scanned PDF?)", document_id)
+                doc.total_pages = total_pages
+                await db.commit()
+                return
+
+            # Delete existing chunks (idempotent)
+            from sqlalchemy import delete
+            await db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc_uuid))
+
+            # Build chunks across pages, tracking page source
+            chunk_index = 0
+            for page_num, text in pages_text:
+                tokens = ENCODING.encode(text)
+                token_groups = _chunk_tokens(tokens)
+                for token_group in token_groups:
+                    content = ENCODING.decode(token_group)
+                    db.add(DocumentChunk(
+                        document_id=doc_uuid,
+                        content=content,
+                        chunk_index=chunk_index,
+                        page=page_num,
+                    ))
+                    chunk_index += 1
+
+            doc.total_pages = total_pages
+            await db.commit()
+            logger.info("Ingestion: document %s processed — %d chunks, %d pages", document_id, chunk_index, total_pages)
+
+        except Exception:
+            logger.exception("Ingestion failed for document %s", document_id)

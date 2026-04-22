@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: knodex
+      POSTGRES_PASSWORD: knodex
+      POSTGRES_DB: knodex
+    ports:
+      - "15432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knodex"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://knodex:knodex@db:5432/knodex
+      PDF_STORAGE_ROOT: /data/pdfs
+    volumes:
+      - ./backend:/app
+      - ./pdfdata:/data/pdfs
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "18080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+
+  # 開發模式（make dev-up 啟動）
+  frontend-dev:
+    profiles: ["dev"]
+    build: ./frontend
+    ports:
+      - "15173:5173"
+    environment:
+      VITE_API_URL: http://localhost:18000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host
