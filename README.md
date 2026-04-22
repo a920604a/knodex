@@ -30,14 +30,14 @@ make up
 make migrate
 
 # 3. 開啟瀏覽器
-open http://localhost:15173
+open http://localhost:5173
 ```
 
 服務位址：
 
 | 服務 | 位址 |
 |------|------|
-| 前端 | http://localhost:15173 |
+| 前端 | http://localhost:5173 |
 | API | http://localhost:18000 |
 | API 文件 | http://localhost:18000/docs |
 | PostgreSQL | localhost:15432 |

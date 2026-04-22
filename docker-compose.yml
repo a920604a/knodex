@@ -20,6 +20,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://knodex:knodex@db:5432/knodex
       PDF_STORAGE_ROOT: /data/pdfs
+    ports:
+      - "18000:8000"
     volumes:
       - ./backend:/app
       - ./pdfdata:/data/pdfs
@@ -43,7 +45,7 @@ services:
     profiles: ["dev"]
     build: ./frontend
     ports:
-      - "15173:5173"
+      - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:18000
     volumes:

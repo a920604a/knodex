@@ -1,4 +1,4 @@
-.PHONY: up up-d down down-v logs prod build-frontend dev-backend dev-frontend dev dev-up migrate migrate-down migrate-history install install-backend install-frontend test test-backend test-watch lint clean-db help
+.PHONY: up down down-v logs prod build-frontend build dev dev-frontend migrate migrate-down migrate-history install install-backend install-frontend test test-backend test-watch lint clean-db help
 
 # ── 生產部署 ──────────────────────────────────────────────────────────────────
 
@@ -12,16 +12,16 @@ build-frontend:
 # ── Docker（開發） ────────────────────────────────────────────────────────────
 
 up:
-	docker compose up db backend nginx
-
-up-d:
 	docker compose up -d db backend nginx
 
 build:
-	docker compose build db backend nginx
+	docker compose build backend frontend-dev
 
-dev-up:
-	docker compose --profile dev up
+dev-backend:
+	docker compose up -d db backend 
+
+dev-frontend:
+	docker compose up -d frontend-dev
 
 down:
 	docker compose down
@@ -32,27 +32,16 @@ down-v:
 logs:
 	docker compose logs -f
 
-# ── 本地開發（不用 Docker）────────────────────────────────────────────────────
-
-dev-backend:
-	cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-dev-frontend:
-	cd frontend && npm run dev
-
-dev:
-	@echo "請開兩個終端分別執行 make dev-backend 與 make dev-frontend"
-
 # ── 資料庫 migration ──────────────────────────────────────────────────────────
 
 migrate:
-	cd backend && alembic upgrade head
+	docker compose exec backend alembic upgrade head
 
 migrate-down:
-	cd backend && alembic downgrade -1
+	docker compose exec backend alembic downgrade -1
 
 migrate-history:
-	cd backend && alembic history --verbose
+	docker compose exec backend alembic history --verbose
 
 # ── 安裝依賴 ──────────────────────────────────────────────────────────────────
 
@@ -96,13 +85,11 @@ help:
 	@echo "  make build-frontend  只 build 前端靜態檔（frontend/dist/）"
 	@echo ""
 	@echo "  【開發】"
-	@echo "  make build           重新 build image（requirements.txt 有變動時用）"
-	@echo "  make up              啟動 db + backend + nginx（volume mount，自動 reload）"
-	@echo "  make up-d            背景啟動"
-	@echo "  make dev-up          啟動全部含前端 dev server（:15173）"
-	@echo "  make dev-backend     本地啟動後端"
-	@echo "  make dev-frontend    本地啟動前端 dev server"
-	@echo "  make down            停止服務"
+	@echo "  make dev-backend     啟動 db + backend（:8000）"
+	@echo "  make dev-frontend    只啟動 frontend-dev（:5173）"
+	@echo "  make build           重新 build backend / frontend-dev image"
+	@echo "  make up              啟動 db + backend + nginx（production 用）"
+	@echo "  make down            停止所有服務"
 	@echo "  make down-v          停止並刪除 volume"
 	@echo ""
 	@echo "  【資料庫】"
