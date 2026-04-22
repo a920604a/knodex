@@ -7,7 +7,11 @@ app = FastAPI(title="Knodex — PDF Knowledge Reader", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:15173", "http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:15173",
+        "http://localhost:5173",
+        "https://<你的帳號>.github.io",  # 替換成實際 GitHub 帳號
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

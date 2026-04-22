@@ -12,13 +12,16 @@ build-frontend:
 # ── Docker（開發） ────────────────────────────────────────────────────────────
 
 up:
-	docker compose up --build db backend nginx
+	docker compose up db backend nginx
 
 up-d:
-	docker compose up --build -d db backend nginx
+	docker compose up -d db backend nginx
+
+build:
+	docker compose build db backend nginx
 
 dev-up:
-	docker compose --profile dev up --build
+	docker compose --profile dev up
 
 down:
 	docker compose down
@@ -93,7 +96,8 @@ help:
 	@echo "  make build-frontend  只 build 前端靜態檔（frontend/dist/）"
 	@echo ""
 	@echo "  【開發】"
-	@echo "  make up              啟動 db + backend + nginx（使用現有 dist/）"
+	@echo "  make build           重新 build image（requirements.txt 有變動時用）"
+	@echo "  make up              啟動 db + backend + nginx（volume mount，自動 reload）"
 	@echo "  make up-d            背景啟動"
 	@echo "  make dev-up          啟動全部含前端 dev server（:15173）"
 	@echo "  make dev-backend     本地啟動後端"
