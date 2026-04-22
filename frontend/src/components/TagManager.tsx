@@ -2,18 +2,19 @@ import { useEffect, useState } from "react";
 import { createTag, deleteTag, getTagTree } from "../api/tags";
 import type { TagTree } from "../types";
 
-function TagNode({ tag, onDelete }: { tag: TagTree; onDelete: (id: string, cascade: boolean) => void }) {
+function TagNode({ tag, onDelete }: { tag: TagTree; onDelete: (id: string, hasChildren: boolean) => void }) {
   return (
     <li>
       <span>{tag.name}</span>
       <button
+        className="btn btn--ghost"
+        style={{ color: "#ff3b30" }}
         onClick={() => onDelete(tag.id, tag.children.length > 0)}
-        style={{ fontSize: 10, marginLeft: 6, cursor: "pointer", border: "none", background: "none", color: "#e53935" }}
       >
         ✕
       </button>
       {tag.children.length > 0 && (
-        <ul style={{ paddingLeft: 16 }}>
+        <ul className="tag-tree">
           {tag.children.map((c) => <TagNode key={c.id} tag={c} onDelete={onDelete} />)}
         </ul>
       )}
@@ -37,24 +38,24 @@ export default function TagManager() {
 
   const handleDelete = async (id: string, hasChildren: boolean) => {
     const cascade = hasChildren ? confirm("此標籤含子標籤，是否一併刪除？") : false;
-    await deleteTag(id, cascade || hasChildren ? true : false);
+    await deleteTag(id, cascade || hasChildren);
     load();
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h3>標籤管理</h3>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+    <div className="page-content">
+      <h2>標籤管理</h2>
+      <div className="tag-create">
         <input
+          className="input"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="新標籤名稱"
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          style={{ flex: 1, padding: "4px 8px" }}
         />
-        <button onClick={handleCreate}>新增</button>
+        <button className="btn btn--primary" onClick={handleCreate}>新增</button>
       </div>
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <ul className="tag-tree">
         {tree.map((t) => <TagNode key={t.id} tag={t} onDelete={handleDelete} />)}
       </ul>
     </div>

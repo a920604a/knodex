@@ -62,51 +62,34 @@ export default function ReaderPage() {
     const text = sel.toString().trim();
     if (!text) return;
     const range = sel.getRangeAt(0);
-    setSelection({
-      text,
-      page: currentPage,
-      start_offset: range.startOffset,
-      end_offset: range.endOffset,
-    });
+    setSelection({ text, page: currentPage, start_offset: range.startOffset, end_offset: range.endOffset });
     setShowModal(true);
   };
 
-  if (!doc) return <div style={{ padding: 24 }}>載入中...</div>;
+  if (!doc) return <div className="page-content">載入中...</div>;
 
   return (
-    <div style={{ display: "flex", height: "100vh", flexDirection: "column" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", padding: "8px 16px", borderBottom: "1px solid #ddd", gap: 12 }}>
-        <button onClick={() => nav("/")} style={{ fontSize: 13 }}>← 返回</button>
-        <strong style={{ flex: 1 }}>{doc.title}</strong>
-        <input
-          value={filterQ}
-          onChange={(e) => setFilterQ(e.target.value)}
-          placeholder="搜尋畫線..."
-          style={{ fontSize: 12, padding: "3px 8px", width: 140 }}
-        />
-        <input
-          value={filterTag}
-          onChange={(e) => setFilterTag(e.target.value)}
-          placeholder="標籤篩選"
-          style={{ fontSize: 12, padding: "3px 8px", width: 100 }}
-        />
+    <div className="reader-layout">
+      <div className="toolbar">
+        <button className="btn" onClick={() => nav("/")}>← 返回</button>
+        <span className="toolbar__title">{doc.title}</span>
+        <input className="input" value={filterQ} onChange={(e) => setFilterQ(e.target.value)} placeholder="搜尋畫線..." style={{ width: 140 }} />
+        <input className="input" value={filterTag} onChange={(e) => setFilterTag(e.target.value)} placeholder="標籤篩選" style={{ width: 100 }} />
       </div>
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* PDF viewer */}
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          {/* Page controls */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
-            <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}>‹ 上頁</button>
+      <div className="reader-body">
+        <div className="reader-pdf">
+          <div className="page-controls">
+            <button className="btn" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}>‹ 上頁</button>
             <input
+              className="input"
               value={pageInput}
               onChange={(e) => setPageInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && goToPage(Number(pageInput))}
               style={{ width: 48, textAlign: "center" }}
             />
-            <span style={{ fontSize: 13, color: "#555" }}>/ {numPages || "?"}</span>
-            <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages}>下頁 ›</button>
+            <span>/ {numPages || "?"}</span>
+            <button className="btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages}>下頁 ›</button>
           </div>
 
           <PDFDocument
@@ -115,25 +98,21 @@ export default function ReaderPage() {
             onLoadError={(err) => console.error("PDF load error", err)}
           >
             <div onMouseUp={handleTextSelection}>
-              <Page
-                pageNumber={currentPage}
-                width={680}
-                renderTextLayer={true}
-                renderAnnotationLayer={false}
-              />
+              <Page pageNumber={currentPage} width={680} renderTextLayer renderAnnotationLayer={false} />
             </div>
           </PDFDocument>
         </div>
 
-        {/* Sidebar */}
         {id && (
-          <HighlightSidebar
-            documentId={id}
-            onPageJump={goToPage}
-            filterTag={filterTag}
-            filterQ={filterQ}
-            key={highlightKey}
-          />
+          <div className="reader-inspector">
+            <HighlightSidebar
+              documentId={id}
+              onPageJump={goToPage}
+              filterTag={filterTag}
+              filterQ={filterQ}
+              key={highlightKey}
+            />
+          </div>
         )}
       </div>
 

@@ -31,24 +31,19 @@ export default function HighlightSidebar({ documentId, onPageJump, filterTag, fi
   };
 
   return (
-    <div style={{ width: 300, overflowY: "auto", borderLeft: "1px solid #ddd", padding: 12 }}>
-      <h3 style={{ margin: "0 0 12px" }}>畫線 ({highlights.length})</h3>
+    <>
+      <div className="reader-inspector__title">畫線 ({highlights.length})</div>
       {highlights.map((h) => (
-        <div key={h.id} style={{ marginBottom: 16, padding: 10, background: "#fffde7", borderRadius: 4 }}>
-          <div
-            style={{ cursor: "pointer", fontWeight: 500 }}
-            onClick={() => onPageJump(h.page)}
-          >
+        <div key={h.id} className="highlight-card">
+          <div className="highlight-card__quote" onClick={() => onPageJump(h.page)}>
             「{h.text}」
-            <span style={{ fontSize: 11, color: "#888", marginLeft: 4 }}>p.{h.page}</span>
+            <span className="highlight-card__meta">p.{h.page}</span>
           </div>
 
           {h.tags.length > 0 && (
-            <div style={{ marginTop: 4 }}>
+            <div className="highlight-card__tags">
               {h.tags.map((t) => (
-                <span key={t.id} style={{ fontSize: 11, background: "#e3f2fd", borderRadius: 3, padding: "1px 5px", marginRight: 4 }}>
-                  {t.name}
-                </span>
+                <span key={t.id} className="tag-chip">{t.name}</span>
               ))}
             </div>
           )}
@@ -56,34 +51,33 @@ export default function HighlightSidebar({ documentId, onPageJump, filterTag, fi
           {editingId === h.id ? (
             <div style={{ marginTop: 6 }}>
               <textarea
+                className="textarea"
                 value={editNote}
                 onChange={(e) => setEditNote(e.target.value)}
-                style={{ width: "100%", fontSize: 12 }}
                 rows={3}
               />
-              <button onClick={() => handleSaveNote(h.id)} style={{ fontSize: 11, marginRight: 4 }}>儲存</button>
-              <button onClick={() => setEditingId(null)} style={{ fontSize: 11 }}>取消</button>
+              <div className="highlight-card__actions">
+                <button className="btn btn--primary" onClick={() => handleSaveNote(h.id)}>儲存</button>
+                <button className="btn" onClick={() => setEditingId(null)}>取消</button>
+              </div>
             </div>
           ) : (
-            <div style={{ marginTop: 4, fontSize: 12, color: "#555" }}>
-              {h.note || <em style={{ color: "#bbb" }}>無筆記</em>}
+            <div className="highlight-card__note">
+              {h.note || <em style={{ color: "var(--color-tertiary-label)" }}>無筆記</em>}
               <button
+                className="btn btn--ghost"
                 onClick={() => { setEditingId(h.id); setEditNote(h.note || ""); }}
-                style={{ fontSize: 10, marginLeft: 6, cursor: "pointer", border: "none", background: "none", color: "#1976d2" }}
               >
                 編輯
               </button>
             </div>
           )}
 
-          <button
-            onClick={() => handleDelete(h.id)}
-            style={{ fontSize: 10, marginTop: 4, cursor: "pointer", border: "none", background: "none", color: "#e53935" }}
-          >
+          <button className="btn btn--ghost" style={{ color: "#ff3b30" }} onClick={() => handleDelete(h.id)}>
             刪除
           </button>
         </div>
       ))}
-    </div>
+    </>
   );
 }

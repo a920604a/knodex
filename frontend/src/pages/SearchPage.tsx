@@ -15,56 +15,64 @@ export default function SearchPage() {
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+    <div className="page-content">
       <h2>搜尋</h2>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div className="search-bar">
         <input
+          className="input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           placeholder="輸入關鍵字..."
-          style={{ flex: 1, padding: "6px 10px" }}
         />
-        <button onClick={handleSearch}>搜尋</button>
+        <button className="btn btn--primary" onClick={handleSearch}>搜尋</button>
       </div>
 
       {result && (
         <>
           <h3>文件 ({result.documents.length})</h3>
-          {result.documents.length === 0 ? <p style={{ color: "#888" }}>無結果</p> : (
-            <ul style={{ listStyle: "none", padding: 0 }}>
-              {result.documents.map((d) => (
-                <li
-                  key={d.id}
-                  onClick={() => nav(`/reader/${d.id}`)}
-                  style={{ padding: "8px 12px", marginBottom: 4, border: "1px solid #ddd", borderRadius: 4, cursor: "pointer" }}
-                >
-                  {d.title}
-                </li>
-              ))}
-            </ul>
-          )}
+          {result.documents.length === 0
+            ? <p className="empty-state">無結果</p>
+            : (
+              <ul className="doc-list">
+                {result.documents.map((d) => (
+                  <li
+                    key={d.id}
+                    className="card card--clickable"
+                    onClick={() => nav(`/reader/${d.id}`)}
+                  >
+                    {d.title}
+                  </li>
+                ))}
+              </ul>
+            )}
 
-          <h3 style={{ marginTop: 20 }}>畫線 ({result.highlights.length})</h3>
-          {result.highlights.length === 0 ? <p style={{ color: "#888" }}>無結果</p> : (
-            <ul style={{ listStyle: "none", padding: 0 }}>
-              {result.highlights.map((h) => (
-                <li
-                  key={h.id}
-                  onClick={() => nav(`/reader/${h.document_id}`)}
-                  style={{ padding: "8px 12px", marginBottom: 4, background: "#fffde7", borderRadius: 4, cursor: "pointer" }}
-                >
-                  <div>「{h.text}」<span style={{ fontSize: 11, color: "#888", marginLeft: 6 }}>p.{h.page}</span></div>
-                  {h.note && <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{h.note}</div>}
-                  {h.tags.map((t) => (
-                    <span key={t.id} style={{ fontSize: 11, background: "#e3f2fd", borderRadius: 3, padding: "1px 5px", marginRight: 4, marginTop: 4, display: "inline-block" }}>
-                      {t.name}
-                    </span>
-                  ))}
-                </li>
-              ))}
-            </ul>
-          )}
+          <h3>畫線 ({result.highlights.length})</h3>
+          {result.highlights.length === 0
+            ? <p className="empty-state">無結果</p>
+            : (
+              <ul className="doc-list">
+                {result.highlights.map((h) => (
+                  <li
+                    key={h.id}
+                    className="highlight-card"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => nav(`/reader/${h.document_id}`)}
+                  >
+                    <div>
+                      「{h.text}」
+                      <span className="highlight-card__meta">p.{h.page}</span>
+                    </div>
+                    {h.note && <div className="highlight-card__note">{h.note}</div>}
+                    <div className="highlight-card__tags">
+                      {h.tags.map((t) => (
+                        <span key={t.id} className="tag-chip">{t.name}</span>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
         </>
       )}
     </div>
