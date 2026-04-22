@@ -19,12 +19,14 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+asyncpg://knodex:knodex@db:5432/knodex
-      PDF_STORAGE_ROOT: /data/pdfs
+      MINIO_ENDPOINT: http://MINIO_HOST_REDACTED:60090
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: ebook
     ports:
       - "18000:8000"
     volumes:
       - ./backend:/app
-      - ./pdfdata:/data/pdfs
     depends_on:
       db:
         condition: service_healthy

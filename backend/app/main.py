@@ -1,9 +1,19 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import documents, highlights, search, tags
+from app.services import storage
 
-app = FastAPI(title="Knodex — PDF Knowledge Reader", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    storage.ensure_bucket()
+    yield
+
+
+app = FastAPI(title="Knodex — PDF Knowledge Reader", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

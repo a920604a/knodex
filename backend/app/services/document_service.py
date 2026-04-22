@@ -5,25 +5,21 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.models.document import Document
 from app.schemas.document import ProgressUpdate
+from app.services import storage
 
 
 async def save_pdf(file: UploadFile) -> tuple[str, str]:
-    storage = Path(settings.pdf_storage_root)
-    storage.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid.uuid4()}_{file.filename}"
-    dest = storage / filename
     content = await file.read()
-    dest.write_bytes(content)
+    key = storage.upload_pdf(content, file.filename or "upload.pdf")
     title = Path(file.filename or "untitled").stem
-    return str(dest.relative_to(storage)), title
+    return key, title
 
 
 async def create_document(db: AsyncSession, file: UploadFile) -> Document:
-    rel_path, title = await save_pdf(file)
-    doc = Document(title=title, file_path=rel_path)
+    key, title = await save_pdf(file)
+    doc = Document(title=title, file_path=key)
     db.add(doc)
     await db.commit()
     await db.refresh(doc)

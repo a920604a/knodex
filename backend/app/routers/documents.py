@@ -1,14 +1,12 @@
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.database import get_db
 from app.schemas.document import DocumentListItem, DocumentOut, ProgressUpdate
-from app.services import document_service, ingestion_service
+from app.services import document_service, ingestion_service, storage
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -54,10 +52,11 @@ async def update_progress(
 @router.get("/{doc_id}/file")
 async def serve_pdf(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     doc = await document_service.get_document(db, doc_id)
-    pdf_path = Path(settings.pdf_storage_root) / doc.file_path
-    if not pdf_path.exists():
-        raise HTTPException(status_code=404, detail="PDF file not found on disk")
-    return FileResponse(str(pdf_path), media_type="application/pdf")
+    try:
+        data = storage.download_pdf(doc.file_path)
+    except Exception:
+        raise HTTPException(status_code=404, detail="PDF file not found in storage")
+    return StreamingResponse(iter([data]), media_type="application/pdf")
 
 
 @router.post("/{doc_id}/reprocess", status_code=202)

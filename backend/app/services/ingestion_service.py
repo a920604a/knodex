@@ -1,15 +1,14 @@
 import logging
 import re
 import uuid
-from pathlib import Path
 
 import fitz  # PyMuPDF
 import tiktoken
 
-from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.chunk import DocumentChunk
 from app.models.document import Document
+from app.services import storage
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +44,13 @@ async def run_ingestion(document_id: str) -> None:
                 logger.warning("Ingestion: document %s not found", document_id)
                 return
 
-            pdf_path = Path(settings.pdf_storage_root) / doc.file_path
-            if not pdf_path.exists():
-                logger.error("Ingestion: PDF file not found at %s", pdf_path)
+            try:
+                pdf_bytes = storage.download_pdf(doc.file_path)
+            except Exception:
+                logger.error("Ingestion: PDF not found in storage for key %s", doc.file_path)
                 return
 
-            pdf = fitz.open(str(pdf_path))
+            pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
             total_pages = len(pdf)
 
             # Extract text per page
