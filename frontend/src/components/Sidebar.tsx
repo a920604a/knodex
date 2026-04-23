@@ -1,9 +1,9 @@
 import { useLocation, Link } from "react-router-dom";
 
 const NAV = [
-  { to: "/",       label: "文件" },
+  { to: "/", label: "書庫" },
   { to: "/search", label: "搜尋" },
-  { to: "/tags",   label: "標籤" },
+  { to: "/tags", label: "知識標籤" },
 ];
 
 export default function Sidebar() {

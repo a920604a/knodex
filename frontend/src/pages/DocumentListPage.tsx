@@ -10,7 +10,78 @@ import {
 import { getDocumentTagTree } from "../api/documentTags";
 import type { Document, DocumentTag, DocumentTagTree } from "../types";
 
-type SelectedTagMap = Record<string, string>;
+function TopicDropdown({
+  allTags,
+  assignedTagIds,
+  onToggle,
+  disabled,
+}: {
+  allTags: DocumentTag[];
+  assignedTagIds: Set<string>;
+  onToggle: (tag: DocumentTag) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const filtered = allTags.filter((t) =>
+    t.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="topic-dropdown" ref={ref}>
+      <button
+        type="button"
+        className="topic-dropdown__trigger"
+        onClick={() => setOpen((o) => !o)}
+        disabled={disabled}
+      >
+        設定主題 ▾
+      </button>
+      {open && (
+        <div className="topic-dropdown__menu">
+          <input
+            className="input topic-dropdown__search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜尋主題..."
+            autoFocus
+          />
+          <ul className="topic-dropdown__list">
+            {filtered.map((tag) => (
+              <li key={tag.id}>
+                <label className="topic-dropdown__item">
+                  <input
+                    type="checkbox"
+                    checked={assignedTagIds.has(tag.id)}
+                    onChange={() => onToggle(tag)}
+                  />
+                  {tag.name}
+                </label>
+              </li>
+            ))}
+            {filtered.length === 0 && (
+              <li className="topic-dropdown__empty">沒有符合的主題</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? value : [];
@@ -70,7 +141,7 @@ function TagGroup({
             </div>
           )}
           {directDocs.length === 0 && tag.children.length === 0 && (
-            <p className="empty-state">此主題目前沒有文件。</p>
+            <p className="empty-state">此文件主題目前沒有書。</p>
           )}
         </div>
       )}
@@ -82,7 +153,7 @@ export default function DocumentListPage() {
   const [docs, setDocs] = useState<Document[]>([]);
   const [tagTree, setTagTree] = useState<DocumentTagTree[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [selectedTags, setSelectedTags] = useState<SelectedTagMap>({});
+  const [busyDocs, setBusyDocs] = useState<Record<string, boolean>>({});
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
@@ -135,22 +206,27 @@ export default function DocumentListPage() {
     setOpenGroups((current) => ({ ...current, [id]: !(current[id] ?? true) }));
   };
 
-  const handleSelectTag = (docId: string, value: string) => {
-    setSelectedTags((current) => ({ ...current, [docId]: value }));
+  const mutateDocTags = async (docId: string, mutate: () => Promise<unknown>) => {
+    if (busyDocs[docId]) return;
+    setBusyDocs((current) => ({ ...current, [docId]: true }));
+    try {
+      await mutate();
+      await load();
+    } finally {
+      setBusyDocs((current) => ({ ...current, [docId]: false }));
+    }
   };
 
-  const handleAddTag = async (docId: string) => {
-    const selectedTagId = selectedTags[docId];
-    if (!selectedTagId) return;
-    await addDocumentTag(docId, selectedTagId);
-    setSelectedTags((current) => ({ ...current, [docId]: "" }));
-    await load();
+  const handleToggleTag = async (doc: Document, tag: DocumentTag) => {
+    const isAssigned = doc.document_tags.some((assignedTag) => assignedTag.id === tag.id);
+    await mutateDocTags(doc.id, () =>
+      isAssigned ? removeDocumentTag(doc.id, tag.id) : addDocumentTag(doc.id, tag.id),
+    );
   };
 
   const renderDocCard = (doc: Document) => {
-    const availableTags = allTags.filter(
-      (tag) => !doc.document_tags.some((assignedTag) => assignedTag.id === tag.id),
-    );
+    const assignedTagIds = new Set(doc.document_tags.map((tag) => tag.id));
+    const isBusy = busyDocs[doc.id] ?? false;
 
     return (
       <li
@@ -183,41 +259,26 @@ export default function DocumentListPage() {
         </div>
 
         <div className="doc-card__tags" onClick={(e) => e.stopPropagation()}>
-          <div className="doc-card__tag-list">
-            {doc.document_tags.length === 0 && <span className="tag-chip">未分類</span>}
-            {doc.document_tags.map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                className="tag-chip tag-chip--clickable"
-                onClick={() => removeDocumentTag(doc.id, tag.id).then(load)}
-              >
-                {tag.name} ×
-              </button>
-            ))}
-          </div>
-          <div className="doc-card__tag-editor">
-            <select
-              className="input doc-card__tag-select"
-              value={selectedTags[doc.id] ?? ""}
-              onChange={(e) => handleSelectTag(doc.id, e.target.value)}
-              disabled={availableTags.length === 0}
-            >
-              <option value="">{availableTags.length === 0 ? "無可新增標籤" : "選擇文件標籤"}</option>
-              {availableTags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
-                </option>
+          <div className="doc-card__tag-section">
+            <TopicDropdown
+              allTags={allTags}
+              assignedTagIds={assignedTagIds}
+              onToggle={(tag) => void handleToggleTag(doc, tag)}
+              disabled={isBusy}
+            />
+            <div className="doc-card__tag-list">
+              {doc.document_tags.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className="tag-chip tag-chip--clickable tag-chip--selected"
+                  onClick={() => void handleToggleTag(doc, tag)}
+                  disabled={isBusy}
+                >
+                  {tag.name} ✕
+                </button>
               ))}
-            </select>
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => handleAddTag(doc.id)}
-              disabled={!selectedTags[doc.id]}
-            >
-              + 加標籤
-            </button>
+            </div>
           </div>
         </div>
       </li>
@@ -240,7 +301,7 @@ export default function DocumentListPage() {
         <div className="library-layout">
           <section className="library-section">
             <div className="library-section__header">
-              <h2>最近活動</h2>
+              <h2>最近閱讀</h2>
               <span className="library-section__hint">依更新時間排序的 pinned 捷徑</span>
             </div>
             <ul className="doc-list">{recentDocs.map(renderDocCard)}</ul>
@@ -248,8 +309,8 @@ export default function DocumentListPage() {
 
           <section className="library-section">
             <div className="library-section__header">
-              <h2>主題資料夾</h2>
-              <span className="library-section__hint">依文件標籤樹瀏覽</span>
+              <h2>主題書架</h2>
+              <span className="library-section__hint">書的主題直接在書卡上選，這裡依主題瀏覽</span>
             </div>
             <div className="library-groups">
               {tagTree.map((tag) => (
@@ -268,7 +329,7 @@ export default function DocumentListPage() {
                   onClick={() => handleGroupToggle("untagged")}
                   type="button"
                 >
-                  <span className="library-group__title">📁 未分類</span>
+                  <span className="library-group__title">📁 未歸類</span>
                   <span className="library-group__meta">
                     {untaggedDocs.length} {(openGroups.untagged ?? true) ? "▼" : "▶"}
                   </span>
@@ -278,7 +339,7 @@ export default function DocumentListPage() {
                     {untaggedDocs.length > 0 ? (
                       <ul className="doc-list">{untaggedDocs.map(renderDocCard)}</ul>
                     ) : (
-                      <p className="empty-state">目前所有文件都已分類。</p>
+                      <p className="empty-state">目前所有書都已歸入文件主題。</p>
                     )}
                   </div>
                 )}

@@ -78,7 +78,7 @@ export default function ReaderPage() {
         <button className="btn" onClick={() => nav("/")}>← 返回</button>
         <span className="toolbar__title">{doc.title}</span>
         <input className="input" value={filterQ} onChange={(e) => setFilterQ(e.target.value)} placeholder="搜尋畫線..." style={{ width: 140 }} />
-        <input className="input" value={filterTag} onChange={(e) => setFilterTag(e.target.value)} placeholder="標籤篩選" style={{ width: 100 }} />
+        <input className="input" value={filterTag} onChange={(e) => setFilterTag(e.target.value)} placeholder="知識標籤篩選" style={{ width: 120 }} />
       </div>
 
       <div className="reader-body">

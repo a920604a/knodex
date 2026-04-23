@@ -57,7 +57,7 @@ export default function HighlightModal({ documentId, selection, onClose, onCreat
 
         {tags.length > 0 && (
           <>
-            <label className="form-label">標籤</label>
+            <label className="form-label">知識標籤</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, marginBottom: 4 }}>
               {tags.map((t) => (
                 <span

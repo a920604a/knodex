@@ -17,6 +17,9 @@ async def _upload_pdf(client, tmp_path, monkeypatch, filename: str = "book.pdf")
 
 @pytest.mark.asyncio
 async def test_create_document_tag_tree(client):
+    seed = await client.get("/document-tags/tree")
+    assert seed.status_code == 200
+
     parent = await client.post("/document-tags", json={"name": f"ML-{uuid.uuid4()}"})
     assert parent.status_code == 201
 
@@ -28,8 +31,18 @@ async def test_create_document_tag_tree(client):
 
     tree = await client.get("/document-tags/tree")
     assert tree.status_code == 200
-    assert len(tree.json()) == 1
-    assert tree.json()[0]["children"][0]["id"] == child.json()["id"]
+    created_parent = next((node for node in tree.json() if node["id"] == parent.json()["id"]), None)
+    assert created_parent is not None
+    assert created_parent["children"][0]["id"] == child.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_document_tags_bootstrap_with_default_topics(client):
+    resp = await client.get("/document-tags")
+    assert resp.status_code == 200
+
+    names = {tag["name"] for tag in resp.json()}
+    assert {"技術", "產品", "設計", "商業", "研究", "教學", "案例", "未分類", "AI", "Data", "自動化"}.issubset(names)
 
 
 @pytest.mark.asyncio

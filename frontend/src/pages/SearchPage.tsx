@@ -47,7 +47,7 @@ export default function SearchPage() {
               </ul>
             )}
 
-          <h3>畫線 ({result.highlights.length})</h3>
+          <h3>畫線知識 ({result.highlights.length})</h3>
           {result.highlights.length === 0
             ? <p className="empty-state">無結果</p>
             : (
@@ -64,11 +64,13 @@ export default function SearchPage() {
                       <span className="highlight-card__meta">p.{h.page}</span>
                     </div>
                     {h.note && <div className="highlight-card__note">{h.note}</div>}
-                    <div className="highlight-card__tags">
-                      {h.tags.map((t) => (
-                        <span key={t.id} className="tag-chip">{t.name}</span>
-                      ))}
-                    </div>
+                    {h.tags.length > 0 && (
+                      <div className="highlight-card__tags">
+                        {h.tags.map((t) => (
+                          <span key={t.id} className="tag-chip">{t.name}</span>
+                        ))}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

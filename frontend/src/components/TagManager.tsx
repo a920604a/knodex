@@ -44,16 +44,19 @@ export default function TagManager() {
 
   return (
     <div className="page-content">
-      <h2>標籤管理</h2>
+      <h2>知識標籤管理</h2>
+      <p className="empty-state" style={{ paddingTop: 0 }}>
+        知識標籤是用來分類畫線與知識點，不是用來整理書本。
+      </p>
       <div className="tag-create">
         <input
           className="input"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="新標籤名稱"
+          placeholder="新增知識標籤"
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
         />
-        <button className="btn btn--primary" onClick={handleCreate}>新增</button>
+        <button className="btn btn--primary" onClick={handleCreate}>新增標籤</button>
       </div>
       <ul className="tag-tree">
         {tree.map((t) => <TagNode key={t.id} tag={t} onDelete={handleDelete} />)}

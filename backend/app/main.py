@@ -2,13 +2,13 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.database import AsyncSessionLocal
 from app.routers import document_tags, documents, highlights, search, tags
 from app.services import storage
+from app.services.document_tag_service import ensure_default_tags
 from app.services.sync_service import sync_minio_to_db
 
 logging.basicConfig(level=logging.INFO)
@@ -16,14 +16,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def _do_migrate() -> None:
-    cfg = Config("alembic.ini")
-    command.upgrade(cfg, "head")
-    
-
 async def run_migrations() -> None:
     logger.info("Running DB migrations...")
-    await asyncio.to_thread(_do_migrate)
+    proc = await asyncio.create_subprocess_exec(
+        "uv", "run", "alembic", "upgrade", "head",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    stdout, _ = await proc.communicate()
+    if stdout:
+        for line in stdout.decode().splitlines():
+            logger.info(line)
+    if proc.returncode != 0:
+        raise RuntimeError(f"Migration failed (exit {proc.returncode})")
     logger.info("DB migrations complete")
 
 
@@ -31,6 +36,8 @@ async def run_migrations() -> None:
 async def lifespan(app: FastAPI):
     await run_migrations()
     storage.ensure_bucket()
+    async with AsyncSessionLocal() as db:
+        await ensure_default_tags(db)
     asyncio.create_task(sync_minio_to_db())
     yield
 

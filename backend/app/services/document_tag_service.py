@@ -8,6 +8,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document_tag import DocumentTag
 from app.schemas.document_tag import DocumentTagCreate, DocumentTagTree
 
+DEFAULT_DOCUMENT_TAGS = (
+    "技術",
+    "產品",
+    "設計",
+    "商業",
+    "研究",
+    "教學",
+    "案例",
+    "未分類",
+    "AI",
+    "Data",
+    "自動化",
+)
+
+
+async def ensure_default_tags(db: AsyncSession) -> None:
+    result = await db.execute(
+        select(DocumentTag.name).where(
+            DocumentTag.name.in_(DEFAULT_DOCUMENT_TAGS),
+            DocumentTag.parent_id.is_(None),
+        )
+    )
+    existing = {row[0] for row in result.all()}
+    missing = [name for name in DEFAULT_DOCUMENT_TAGS if name not in existing]
+    if missing:
+        db.add_all(DocumentTag(name=name) for name in missing)
+        await db.commit()
+
 
 async def create_tag(db: AsyncSession, body: DocumentTagCreate) -> DocumentTag:
     if body.parent_id:
