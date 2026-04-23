@@ -9,9 +9,11 @@ from app.schemas.document_tag import DocumentTagOut
 
 class DocumentOut(BaseModel):
     id: uuid.UUID
+    user_id: uuid.UUID | None = None
     title: str
     file_path: str
     status: str
+    ingestion_status: str = "pending"
     progress: float
     total_pages: int | None
     created_at: datetime
@@ -25,6 +27,7 @@ class DocumentListItem(BaseModel):
     id: uuid.UUID
     title: str
     status: str
+    ingestion_status: str = "pending"
     progress: float
     total_pages: int | None
     created_at: datetime

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,9 +20,16 @@ async def save_pdf(file: UploadFile) -> tuple[str, str]:
     return key, title
 
 
-async def create_document(db: AsyncSession, file: UploadFile) -> Document:
+async def get_user_document_count(db: AsyncSession, user_id: uuid.UUID) -> int:
+    result = await db.execute(
+        select(func.count()).where(Document.user_id == user_id)
+    )
+    return result.scalar_one()
+
+
+async def create_document(db: AsyncSession, file: UploadFile, user_id: uuid.UUID) -> Document:
     key, title = await save_pdf(file)
-    doc = Document(title=title, file_path=key)
+    doc = Document(title=title, file_path=key, user_id=user_id, ingestion_status="pending")
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
@@ -30,12 +37,16 @@ async def create_document(db: AsyncSession, file: UploadFile) -> Document:
     return doc
 
 
-async def _load_document(db: AsyncSession, doc_id: uuid.UUID) -> Document:
-    result = await db.execute(
+async def _load_document(db: AsyncSession, doc_id: uuid.UUID, user_id: uuid.UUID | None = None) -> Document:
+    stmt = (
         select(Document)
         .options(selectinload(Document.tag_links).selectinload(DocumentTagLink.tag))
         .where(Document.id == doc_id)
     )
+    if user_id is not None:
+        stmt = stmt.where(Document.user_id == user_id)
+
+    result = await db.execute(stmt)
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -47,8 +58,16 @@ def _attach_tags(doc: Document) -> Document:
     return doc
 
 
-async def list_documents(db: AsyncSession, document_tag_id: uuid.UUID | None = None) -> list[Document]:
-    stmt = select(Document).options(selectinload(Document.tag_links).selectinload(DocumentTagLink.tag))
+async def list_documents(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    document_tag_id: uuid.UUID | None = None,
+) -> list[Document]:
+    stmt = (
+        select(Document)
+        .options(selectinload(Document.tag_links).selectinload(DocumentTagLink.tag))
+        .where(Document.user_id == user_id)
+    )
 
     if document_tag_id:
         tag = await db.get(DocumentTag, document_tag_id)
@@ -63,12 +82,14 @@ async def list_documents(db: AsyncSession, document_tag_id: uuid.UUID | None = N
     return docs
 
 
-async def get_document(db: AsyncSession, doc_id: uuid.UUID) -> Document:
-    return await _load_document(db, doc_id)
+async def get_document(db: AsyncSession, doc_id: uuid.UUID, user_id: uuid.UUID | None = None) -> Document:
+    return await _load_document(db, doc_id, user_id)
 
 
-async def update_progress(db: AsyncSession, doc_id: uuid.UUID, body: ProgressUpdate) -> Document:
-    doc = await get_document(db, doc_id)
+async def update_progress(
+    db: AsyncSession, doc_id: uuid.UUID, body: ProgressUpdate, user_id: uuid.UUID | None = None
+) -> Document:
+    doc = await get_document(db, doc_id, user_id)
 
     if body.status == "done":
         doc.progress = 1.0
@@ -83,11 +104,13 @@ async def update_progress(db: AsyncSession, doc_id: uuid.UUID, body: ProgressUpd
             doc.status = body.status
 
     await db.commit()
-    return await _load_document(db, doc_id)
+    return await _load_document(db, doc_id, user_id)
 
 
-async def add_document_tag(db: AsyncSession, doc_id: uuid.UUID, tag_id: uuid.UUID) -> Document:
-    doc = await get_document(db, doc_id)
+async def add_document_tag(
+    db: AsyncSession, doc_id: uuid.UUID, tag_id: uuid.UUID, user_id: uuid.UUID | None = None
+) -> Document:
+    doc = await get_document(db, doc_id, user_id)
     tag = await db.get(DocumentTag, tag_id)
     if not tag:
         raise HTTPException(status_code=404, detail="Document tag not found")
@@ -104,13 +127,13 @@ async def add_document_tag(db: AsyncSession, doc_id: uuid.UUID, tag_id: uuid.UUI
 
     doc.updated_at = datetime.now(timezone.utc)
     await db.commit()
-    return await _load_document(db, doc_id)
+    return await _load_document(db, doc_id, user_id)
 
 
-async def remove_document_tag(db: AsyncSession, doc_id: uuid.UUID, tag_id: uuid.UUID) -> None:
-    doc = await db.get(Document, doc_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+async def remove_document_tag(
+    db: AsyncSession, doc_id: uuid.UUID, tag_id: uuid.UUID, user_id: uuid.UUID | None = None
+) -> None:
+    doc = await get_document(db, doc_id, user_id)
 
     result = await db.execute(
         select(DocumentTagLink).where(

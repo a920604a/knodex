@@ -22,6 +22,8 @@ class Highlight(Base):
     end_offset: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    embed_status: Mapped[str] = mapped_column(String, default="pending")  # pending | done | failed
+
     document: Mapped["Document"] = relationship("Document", back_populates="highlights")  # noqa: F821
     tag_links: Mapped[list["HighlightTag"]] = relationship(  # noqa: F821
         "HighlightTag", back_populates="highlight", cascade="all, delete-orphan"

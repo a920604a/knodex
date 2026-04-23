@@ -10,6 +10,16 @@ class Settings(BaseSettings):
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "ebook"
 
+    redis_url: str = "redis://localhost:6379"
+
+    secret_key: str = "changeme-use-a-long-random-string-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_days: int = 7
+
+    cf_account_id: str = ""
+    cf_api_token: str = ""
+    cf_vectorize_index_name: str = "knodex-chunks"
+
     class Config:
         env_file = ".env"
 
