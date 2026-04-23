@@ -42,5 +42,8 @@ async def sync_minio_to_db() -> None:
             len(new_keys), len(minio_keys),
         )
 
-    except Exception:
+    except Exception as e:
+        if "UndefinedTableError" in str(e):
+            logger.warning("Sync: skipped — DB tables not ready (run: make migrate)")
+            return
         logger.exception("Sync: unexpected error during MinIO→DB sync")
