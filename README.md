@@ -18,53 +18,55 @@ PDF → 閱讀 → 畫線 → 標籤 → 搜尋 → (未來) RAG
 
 ---
 
-## 快速啟動
+## 快速啟動（生產模式）
 
-**需要：** Docker、Docker Compose
+**需要：** Docker、Docker Compose、外部 MinIO（或 S3 相容服務）
 
 ```bash
-# 1. 啟動所有服務
-make up
+# 1. 設定環境變數
+cp .env.example .env
+# 編輯 .env，填入 MinIO 連線資訊
 
-# 2. 執行資料庫 migration
+# 2. 建置前端 + 啟動所有服務
+make prod
+
+# 3. 執行資料庫 migration
 make migrate
 
-# 3. 開啟瀏覽器
-open http://localhost:5173
+# 4. 開啟瀏覽器
+open http://localhost:18080
 ```
 
 服務位址：
 
 | 服務 | 位址 |
 |------|------|
-| 前端 | http://localhost:5173 |
+| 應用程式（nginx） | http://localhost:18080 |
 | API | http://localhost:18000 |
 | API 文件 | http://localhost:18000/docs |
 | PostgreSQL | localhost:15432 |
 
 ---
 
-## 本地開發（不用 Docker）
-
-**需要：** Python 3.12、Node.js 20、PostgreSQL
+## 開發模式（hot reload）
 
 ```bash
-# 安裝依賴
-make install
+# 啟動 db + backend
+make dev-backend
 
-# 啟動 PostgreSQL 後執行 migration
-make migrate
+# 另一個終端啟動前端 dev server
+make dev-frontend
 
-# 分兩個終端啟動
-make dev-backend    # → http://localhost:18000
-make dev-frontend   # → http://localhost:15173
+open http://localhost:5173
 ```
 
-`.env` 設定（`backend/.env`）：
+`.env` 設定（根目錄，對應 `docker-compose.yml`）：
 
 ```env
-DATABASE_URL=postgresql+asyncpg://knodex:knodex@localhost:15432/knodex
-PDF_STORAGE_ROOT=./pdfdata
+MINIO_ENDPOINT=http://your-minio-host:9000
+MINIO_ACCESS_KEY=your-access-key
+MINIO_SECRET_KEY=your-secret-key
+MINIO_BUCKET=ebook
 ```
 
 ---
@@ -72,15 +74,16 @@ PDF_STORAGE_ROOT=./pdfdata
 ## 常用指令
 
 ```bash
-make up          # Docker 啟動全部服務
-make up-d        # 背景啟動
-make down        # 停止服務
-make down-v      # 停止並清除 volume（重置 DB）
-make migrate     # 執行 DB migration
-make migrate-down # 回滾一個 migration
-make test        # 執行後端測試
-make lint        # TypeScript 型別檢查
-make clean-db    # 清除本地 pgdata / pdfdata
+make prod            # build 前端 → 啟動 db + backend + nginx（:18080）
+make dev-backend     # 啟動 db + backend（開發用）
+make dev-frontend    # 啟動前端 dev server（:5173）
+make down            # 停止服務
+make down-v          # 停止並清除 volume（重置 DB）
+make migrate         # 執行 DB migration
+make migrate-down    # 回滾一個 migration
+make test            # 執行後端測試
+make lint            # TypeScript 型別檢查
+make clean-db        # 清除本地 pgdata
 ```
 
 ---
@@ -92,8 +95,10 @@ make clean-db    # 清除本地 pgdata / pdfdata
 | 前端 | React 18 + TypeScript + Vite |
 | PDF 渲染 | react-pdf（PDF.js） |
 | 後端 | FastAPI + Python 3.12 |
+| 套件管理 | uv + pyproject.toml |
 | 資料庫 | PostgreSQL 16 |
 | ORM | SQLAlchemy 2.0（async） |
+| 物件儲存 | MinIO（S3 相容）via boto3 |
 | PDF 解析 | PyMuPDF（fitz） |
 | 分塊 | tiktoken cl100k_base |
 
@@ -109,7 +114,7 @@ Knodex/
 │   ├── app/
 │   │   ├── models/      # SQLAlchemy models
 │   │   ├── routers/     # API 路由
-│   │   ├── services/    # 業務邏輯
+│   │   ├── services/    # 業務邏輯（含 storage, sync）
 │   │   └── schemas/     # Pydantic schemas
 │   ├── alembic/     # DB migration
 │   └── tests/       # 測試
@@ -119,6 +124,7 @@ Knodex/
 │       ├── pages/       # 頁面元件
 │       └── components/  # 共用元件
 ├── docs/            # 技術文件
+├── .env.example     # 環境變數範本
 ├── docker-compose.yml
 └── Makefile
 ```

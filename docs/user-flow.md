@@ -1,5 +1,19 @@
 # User Flow
 
+## 0. 啟動同步（Startup Sync）
+
+```
+後端啟動
+  → [背景] sync_minio_to_db()
+  → 列出 MinIO bucket 內全部物件
+  → 比對 DB 已有的 file_path
+  → 對差集（MinIO 有、DB 沒有）自動建立 Document 記錄
+  → 記錄 log（新增筆數 / 總數）
+  → HTTP server 立即可接受請求（sync 不阻塞啟動）
+```
+
+---
+
 ## 1. 上傳 PDF
 
 ```
@@ -9,11 +23,11 @@
   → [前端] 驗證 MIME type = application/pdf
   → POST /documents（multipart）
   → [後端] 驗證大小 ≤ 100MB
-  → 存檔至 PDF_STORAGE_ROOT
+  → 上傳至 MinIO（key 格式：{uuid}_{原始檔名}）
   → 資料庫建立文件記錄（status: unread, progress: 0）
   → 前端文件列表即時刷新，顯示新文件
   → [背景] 自動觸發 PDF 解析（使用者無感知）
-       → 擷取每頁文字 → 分塊 → 存入 document_chunks
+       → 從 MinIO 下載 PDF → 擷取每頁文字 → 分塊 → 存入 document_chunks
        → 更新 total_pages
 ```
 
@@ -30,7 +44,7 @@
   → 在文件列表點擊文件
   → 進入閱讀器頁面（/reader/:id）
   → [前端] GET /documents/{id}（取得 metadata）
-  → [前端] GET /documents/{id}/file（串流 PDF bytes → react-pdf 渲染）
+  → [前端] GET /documents/{id}/file（從 MinIO 串流 PDF bytes → react-pdf 渲染）
   → 從上次閱讀頁面開始（或第一頁）
 
 翻頁：
@@ -86,7 +100,20 @@
 
 ---
 
-## 5. 管理標籤
+## 5. 刪除文件
+
+```
+使用者
+  → 在文件列表點擊刪除
+  → DELETE /documents/{id}
+  → [後端] 刪除 MinIO 上的 PDF 檔案
+  → [後端] 刪除 DB 記錄（cascades：highlights, chunks）
+  → 前端文件列表移除該項目
+```
+
+---
+
+## 6. 管理標籤
 
 ```
 進入標籤管理頁（/tags）
@@ -114,7 +141,7 @@
 
 ---
 
-## 6. 搜尋
+## 7. 搜尋
 
 ```
 全域搜尋（/search 頁面）：
@@ -135,13 +162,14 @@
 
 ---
 
-## 7. 重新解析 PDF
+## 8. 重新解析 PDF
 
 ```
 （當 PDF 解析失敗或 total_pages 未更新時）
 
   → POST /documents/{id}/reprocess
   → 後端觸發 BackgroundTask
+  → 從 MinIO 重新下載 PDF
   → 刪除舊 document_chunks → 重新擷取 → 重新分塊 → 寫入新 chunks
   → 更新 total_pages
 ```
