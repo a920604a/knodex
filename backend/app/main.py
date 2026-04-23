@@ -16,16 +16,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def run_migrations() -> None:
-    logger.info("Running DB migrations...")
+def _do_migrate() -> None:
     cfg = Config("alembic.ini")
     command.upgrade(cfg, "head")
+    
+
+async def run_migrations() -> None:
+    logger.info("Running DB migrations...")
+    await asyncio.to_thread(_do_migrate)
     logger.info("DB migrations complete")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    run_migrations()
+    await run_migrations()
     storage.ensure_bucket()
     asyncio.create_task(sync_minio_to_db())
     yield
