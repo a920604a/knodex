@@ -165,21 +165,28 @@ embeddings                   ← 未來 pgvector 啟用後使用
 
 ---
 
-## Startup Sync（MinIO → DB）
+## Startup Sequence
 
-後端啟動時以背景 task 執行，不阻塞 HTTP server：
+後端啟動時依序執行，HTTP server 在全部完成後才開始接受請求（sync 除外）：
 
 ```
 lifespan()
- ├─ storage.ensure_bucket()          ← 確保 bucket 存在
+ ├─ run_migrations()                 ← alembic upgrade head（建表或 no-op）
+ ├─ storage.ensure_bucket()          ← 確保 MinIO bucket 存在
  └─ asyncio.create_task(
         sync_minio_to_db()           ← 非阻塞背景同步
     )
+```
 
+Migration 在啟動時自動跑，不需要手動執行 `make migrate`。
+
+### sync_minio_to_db
+
+```
 sync_minio_to_db()
- ├─ list_objects()                   ← 取 MinIO 全部 key
+ ├─ list_objects()                   ← 取 MinIO 全部 key（支援 pagination）
  ├─ SELECT file_path FROM documents  ← 取 DB 已知 key
- ├─ diff = minio_keys - db_paths     ← set 差集
+ ├─ diff = minio_keys - db_paths     ← Python set 差集
  └─ INSERT Document per new key      ← 補建缺少的 DB 記錄
 ```
 

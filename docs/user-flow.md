@@ -1,15 +1,17 @@
 # User Flow
 
-## 0. 啟動同步（Startup Sync）
+## 0. 啟動程序
 
 ```
 後端啟動
+  → alembic upgrade head（自動建表 / schema 更新）
+  → MinIO ensure_bucket（確保 bucket 存在）
   → [背景] sync_minio_to_db()
-  → 列出 MinIO bucket 內全部物件
-  → 比對 DB 已有的 file_path
-  → 對差集（MinIO 有、DB 沒有）自動建立 Document 記錄
-  → 記錄 log（新增筆數 / 總數）
-  → HTTP server 立即可接受請求（sync 不阻塞啟動）
+      → 列出 MinIO bucket 內全部物件
+      → 比對 DB 已有的 file_path
+      → 對差集（MinIO 有、DB 沒有）自動建立 Document 記錄
+      → 記錄 log（新增筆數 / 總數）
+  → HTTP server 開始接受請求（sync 在背景繼續執行）
 ```
 
 ---

@@ -30,12 +30,11 @@ cp .env.example .env
 # 2. 建置前端 + 啟動所有服務
 make prod
 
-# 3. 執行資料庫 migration
-make migrate
-
-# 4. 開啟瀏覽器
+# 3. 開啟瀏覽器
 open http://localhost:18080
 ```
+
+> DB migration 在後端啟動時自動執行，不需要手動 `make migrate`。
 
 服務位址：
 
@@ -79,7 +78,7 @@ make dev-backend     # 啟動 db + backend（開發用）
 make dev-frontend    # 啟動前端 dev server（:5173）
 make down            # 停止服務
 make down-v          # 停止並清除 volume（重置 DB）
-make migrate         # 執行 DB migration
+make migrate         # 手動執行 DB migration（通常不需要，啟動時自動跑）
 make migrate-down    # 回滾一個 migration
 make test            # 執行後端測試
 make lint            # TypeScript 型別檢查
