@@ -10,10 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-pdf-viewer/core": "^3.12.0",
+    "@react-pdf-viewer/default-layout": "^3.12.0",
+    "@react-pdf-viewer/page-navigation": "^3.12.0",
+    "@react-pdf-viewer/scroll-mode": "^3.12.0",
+    "@react-pdf-viewer/search": "^3.12.0",
+    "@react-pdf-viewer/zoom": "^3.12.0",
     "axios": "^1.15.2",
+    "pdfjs-dist": "^3.11.174",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-pdf": "^10.4.1",
     "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
