@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import documents, highlights, search, tags
 from app.services import storage
-from app.services.sync_service import sync_db_with_storage
+from app.services.sync_service import sync_minio_to_db
 
 logging.basicConfig(level=logging.INFO)
 
@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     storage.ensure_bucket()
-    asyncio.create_task(sync_db_with_storage())
+    asyncio.create_task(sync_minio_to_db())
     yield
 
 

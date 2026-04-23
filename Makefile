@@ -17,6 +17,8 @@ up:
 build:
 	docker compose build backend frontend-dev
 
+dev: dev-backend dev-frontend
+
 dev-backend:
 	docker compose up -d db backend 
 

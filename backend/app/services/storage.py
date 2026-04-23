@@ -56,3 +56,13 @@ def stream_pdf(key: str) -> io.BytesIO:
 
 def delete_pdf(key: str) -> None:
     _client().delete_object(Bucket=settings.minio_bucket, Key=key)
+
+
+def list_objects() -> list[str]:
+    client = _client()
+    keys: list[str] = []
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=settings.minio_bucket):
+        for obj in page.get("Contents", []):
+            keys.append(obj["Key"])
+    return keys
