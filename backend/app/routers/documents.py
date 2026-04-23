@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.schemas.document import DocumentListItem, DocumentOut, ProgressUpdate
+from app.schemas.document_tag import DocumentTagAttach
 from app.services import document_service, ingestion_service, storage
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -32,8 +33,11 @@ async def upload_document(
 
 
 @router.get("", response_model=list[DocumentListItem])
-async def list_documents(db: AsyncSession = Depends(get_db)):
-    return await document_service.list_documents(db)
+async def list_documents(
+    document_tag_id: uuid.UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    return await document_service.list_documents(db, document_tag_id)
 
 
 @router.get("/{doc_id}", response_model=DocumentOut)
@@ -69,6 +73,24 @@ async def delete_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db))
         pass
     await db.delete(doc)
     await db.commit()
+
+
+@router.post("/{doc_id}/tags", response_model=DocumentOut)
+async def add_document_tag(
+    doc_id: uuid.UUID,
+    body: DocumentTagAttach,
+    db: AsyncSession = Depends(get_db),
+):
+    return await document_service.add_document_tag(db, doc_id, body.tag_id)
+
+
+@router.delete("/{doc_id}/tags/{tag_id}", status_code=204)
+async def remove_document_tag(
+    doc_id: uuid.UUID,
+    tag_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    await document_service.remove_document_tag(db, doc_id, tag_id)
 
 
 @router.post("/{doc_id}/reprocess", status_code=202)

@@ -7,7 +7,7 @@ from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import documents, highlights, search, tags
+from app.routers import document_tags, documents, highlights, search, tags
 from app.services import storage
 from app.services.sync_service import sync_minio_to_db
 
@@ -50,6 +50,7 @@ app.add_middleware(
 )
 
 app.include_router(documents.router)
+app.include_router(document_tags.router)
 app.include_router(highlights.router)
 app.include_router(tags.router)
 app.include_router(search.router)

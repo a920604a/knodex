@@ -28,3 +28,6 @@ class Document(Base):
     chunks: Mapped[list["DocumentChunk"]] = relationship(  # noqa: F821
         "DocumentChunk", back_populates="document", cascade="all, delete-orphan"
     )
+    tag_links: Mapped[list["DocumentTagLink"]] = relationship(  # noqa: F821
+        "DocumentTagLink", back_populates="document", cascade="all, delete-orphan"
+    )

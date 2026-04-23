@@ -1,7 +1,10 @@
 import api from "./client";
 import type { Document } from "../types";
 
-export const listDocuments = () => api.get<Document[]>("/documents").then((r) => r.data);
+export const listDocuments = (documentTagId?: string) =>
+  api.get<Document[]>("/documents", {
+    params: documentTagId ? { document_tag_id: documentTagId } : undefined,
+  }).then((r) => r.data);
 
 export const getDocument = (id: string) => api.get<Document>(`/documents/${id}`).then((r) => r.data);
 
@@ -16,3 +19,9 @@ export const updateProgress = (id: string, page?: number, status?: string) =>
 
 export const deleteDocument = (id: string) =>
   api.delete(`/documents/${id}`);
+
+export const addDocumentTag = (id: string, tagId: string) =>
+  api.post<Document>(`/documents/${id}/tags`, { tag_id: tagId }).then((r) => r.data);
+
+export const removeDocumentTag = (id: string, tagId: string) =>
+  api.delete(`/documents/${id}/tags/${tagId}`);

@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.schemas.document_tag import DocumentTagOut
+
 
 class DocumentOut(BaseModel):
     id: uuid.UUID
@@ -14,6 +16,7 @@ class DocumentOut(BaseModel):
     total_pages: int | None
     created_at: datetime
     updated_at: datetime
+    document_tags: list[DocumentTagOut] = []
 
     model_config = {"from_attributes": True}
 
@@ -25,6 +28,8 @@ class DocumentListItem(BaseModel):
     progress: float
     total_pages: int | None
     created_at: datetime
+    updated_at: datetime
+    document_tags: list[DocumentTagOut] = []
 
     model_config = {"from_attributes": True}
 

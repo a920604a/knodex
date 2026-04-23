@@ -7,6 +7,7 @@ export interface Document {
   total_pages: number | null;
   created_at: string;
   updated_at: string;
+  document_tags: DocumentTag[];
 }
 
 export interface Tag {
@@ -17,6 +18,16 @@ export interface Tag {
 
 export interface TagTree extends Tag {
   children: TagTree[];
+}
+
+export interface DocumentTag {
+  id: string;
+  name: string;
+  parent_id: string | null;
+}
+
+export interface DocumentTagTree extends DocumentTag {
+  children: DocumentTagTree[];
 }
 
 export interface Highlight {

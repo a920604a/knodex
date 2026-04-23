@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_upload_pdf(client, tmp_path, monkeypatch):
-    monkeypatch.setattr("app.config.settings.pdf_storage_root", str(tmp_path))
+    monkeypatch.setattr("app.services.storage.upload_pdf", lambda *a, **kw: f"{uuid.uuid4()}_test.pdf")
     monkeypatch.setattr("app.routers.documents.ingestion_service.run_ingestion", lambda *a, **kw: None)
 
     pdf_bytes = b"%PDF-1.4 fake"
@@ -45,7 +45,7 @@ async def test_get_document_not_found(client):
 
 @pytest.mark.asyncio
 async def test_progress_update(client, tmp_path, monkeypatch):
-    monkeypatch.setattr("app.config.settings.pdf_storage_root", str(tmp_path))
+    monkeypatch.setattr("app.services.storage.upload_pdf", lambda *a, **kw: f"{uuid.uuid4()}_book.pdf")
     monkeypatch.setattr("app.routers.documents.ingestion_service.run_ingestion", lambda *a, **kw: None)
 
     # Upload first
@@ -61,3 +61,19 @@ async def test_progress_update(client, tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["status"] == "done"
     assert resp.json()["progress"] == 1.0
+
+
+@pytest.mark.asyncio
+async def test_document_list_item_includes_updated_at_and_document_tags(client, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.storage.upload_pdf", lambda *a, **kw: f"{uuid.uuid4()}_book.pdf")
+    monkeypatch.setattr("app.routers.documents.ingestion_service.run_ingestion", lambda *a, **kw: None)
+
+    await client.post(
+        "/documents",
+        files={"file": ("book.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+    )
+    resp = await client.get("/documents")
+    assert resp.status_code == 200
+    item = resp.json()[0]
+    assert "updated_at" in item
+    assert item["document_tags"] == []
