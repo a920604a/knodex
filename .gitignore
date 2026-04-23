@@ -44,3 +44,6 @@ pdfdata/
 
 # ── Alembic 暫存 ──────────────────────────────────────────────────────────────
 alembic/versions/__pycache__/
+
+# Firebase service account credentials
+*-firebase-adminsdk-*.json

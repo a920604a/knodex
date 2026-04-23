@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { signOut } from "firebase/auth";
+import { createContext, useContext, useState } from "react";
+import { auth } from "../lib/firebase";
 
 interface User {
   id: string;
@@ -39,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    signOut(auth).catch(() => {});
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setToken(null);

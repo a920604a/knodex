@@ -13,7 +13,7 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
-    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    firebase_uid: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
     role: Mapped[str] = mapped_column(String, default="user")  # "user" | "admin"
     pdf_limit: Mapped[int] = mapped_column(Integer, default=10)
     daily_query_limit: Mapped[int] = mapped_column(Integer, default=20)

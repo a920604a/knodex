@@ -7,8 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    },
     proxy: {
-      '^/(document-tags|documents|highlights|tags|search|health)': {
+      '^/(auth|query|document-tags|documents|highlights|tags|search|health)': {
         target: process.env.BACKEND_URL ?? 'http://localhost:18000',
         changeOrigin: true,
       },

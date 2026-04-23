@@ -1,23 +1,19 @@
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.services import auth_service
+from app.services.firebase import verify_id_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+class FirebaseLoginRequest(BaseModel):
+    id_token: str
 
 
 class TokenResponse(BaseModel):
@@ -35,16 +31,26 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.post("/register", response_model=UserOut, status_code=201)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    user = await auth_service.register(db, body.email, body.password)
-    return user
+@router.post("/firebase", response_model=TokenResponse)
+async def firebase_login(body: FirebaseLoginRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        decoded = verify_id_token(body.id_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Firebase ID token")
 
+    uid: str = decoded["uid"]
+    email: str = decoded.get("email", "")
 
-@router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    token = await auth_service.login(db, body.email, body.password)
-    return TokenResponse(access_token=token)
+    result = await db.execute(select(User).where(User.firebase_uid == uid))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        user = User(firebase_uid=uid, email=email)
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    return TokenResponse(access_token=auth_service.create_access_token(user.id))
 
 
 @router.get("/me", response_model=UserOut)

@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     cf_api_token: str = ""
     cf_vectorize_index_name: str = "knodex-chunks"
 
+    firebase_credentials_json: str = ""
+
     class Config:
         env_file = ".env"
 
