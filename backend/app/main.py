@@ -2,6 +2,8 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,9 +13,19 @@ from app.services.sync_service import sync_minio_to_db
 
 logging.basicConfig(level=logging.INFO)
 
+logger = logging.getLogger(__name__)
+
+
+def run_migrations() -> None:
+    logger.info("Running DB migrations...")
+    cfg = Config("alembic.ini")
+    command.upgrade(cfg, "head")
+    logger.info("DB migrations complete")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    run_migrations()
     storage.ensure_bucket()
     asyncio.create_task(sync_minio_to_db())
     yield
