@@ -7,5 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      '^/(documents|highlights|tags|search|health)': {
+        target: process.env.BACKEND_URL ?? 'http://localhost:18000',
+        changeOrigin: true,
+      },
+    },
   },
 })

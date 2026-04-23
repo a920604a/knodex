@@ -13,3 +13,6 @@ export const uploadDocument = (file: File) => {
 
 export const updateProgress = (id: string, page?: number, status?: string) =>
   api.post<Document>(`/documents/${id}/progress`, { page, status }).then((r) => r.data);
+
+export const deleteDocument = (id: string) =>
+  api.delete(`/documents/${id}`);

@@ -8,9 +8,12 @@ import type { Document } from "../types";
 import HighlightModal from "../components/HighlightModal";
 import HighlightSidebar from "../components/HighlightSidebar";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).href;
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 interface SelectionInfo {
   text: string;
@@ -31,6 +34,7 @@ export default function ReaderPage() {
   const [highlightKey, setHighlightKey] = useState(0);
   const [filterTag, setFilterTag] = useState("");
   const [filterQ, setFilterQ] = useState("");
+  const [pdfError, setPdfError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -92,10 +96,15 @@ export default function ReaderPage() {
             <button className="btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages}>下頁 ›</button>
           </div>
 
+          {pdfError && (
+            <div className="pdf-error">
+              PDF 檔案無法載入，可能已從儲存空間中刪除。請重新上傳。
+            </div>
+          )}
           <PDFDocument
             file={`${API_URL}/documents/${id}/file`}
-            onLoadSuccess={({ numPages }) => { setNumPages(numPages); }}
-            onLoadError={(err) => console.error("PDF load error", err)}
+            onLoadSuccess={({ numPages }) => { setNumPages(numPages); setPdfError(false); }}
+            onLoadError={(err) => { console.error("PDF load error", err); setPdfError(true); }}
           >
             <div onMouseUp={handleTextSelection}>
               <Page pageNumber={currentPage} width={680} renderTextLayer renderAnnotationLayer={false} />

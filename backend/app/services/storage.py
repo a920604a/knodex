@@ -36,6 +36,14 @@ def upload_pdf(data: bytes, original_filename: str) -> str:
     return key
 
 
+def file_exists(key: str) -> bool:
+    try:
+        _client().head_object(Bucket=settings.minio_bucket, Key=key)
+        return True
+    except Exception:
+        return False
+
+
 def download_pdf(key: str) -> bytes:
     resp = _client().get_object(Bucket=settings.minio_bucket, Key=key)
     return resp["Body"].read()

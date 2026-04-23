@@ -24,10 +24,10 @@ dev-frontend:
 	docker compose up -d frontend-dev
 
 down:
-	docker compose down
+	docker compose --profile dev down
 
 down-v:
-	docker compose down -v
+	docker compose --profile dev down -v
 
 logs:
 	docker compose logs -f

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listDocuments, uploadDocument } from "../api/documents";
+import { deleteDocument, listDocuments, uploadDocument } from "../api/documents";
 import type { Document } from "../types";
 
 export default function DocumentListPage() {
@@ -51,6 +51,17 @@ export default function DocumentListPage() {
             <div className="doc-card__progress">
               {Math.round(doc.progress * 100)}%
               {doc.total_pages && ` / ${doc.total_pages} 頁`}
+              <button
+                className="btn btn--danger doc-card__delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(`刪除「${doc.title}」？`)) {
+                    deleteDocument(doc.id).then(load);
+                  }
+                }}
+              >
+                刪除
+              </button>
             </div>
           </li>
         ))}

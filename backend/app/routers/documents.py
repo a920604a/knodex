@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.schemas.document import DocumentListItem, DocumentOut, ProgressUpdate
 from app.services import document_service, ingestion_service, storage
@@ -57,6 +58,17 @@ async def serve_pdf(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=404, detail="PDF file not found in storage")
     return StreamingResponse(iter([data]), media_type="application/pdf")
+
+
+@router.delete("/{doc_id}", status_code=204)
+async def delete_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    doc = await document_service.get_document(db, doc_id)
+    try:
+        storage.delete_pdf(doc.file_path)
+    except Exception:
+        pass
+    await db.delete(doc)
+    await db.commit()
 
 
 @router.post("/{doc_id}/reprocess", status_code=202)
