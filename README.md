@@ -6,25 +6,50 @@
 PDF → 閱讀 → 畫線 → 標籤 → RAG 問答
 ```
 
----
+Knodex 有兩種運行模式：
 
-## 功能
-
-- **Google 登入**：Firebase Google Sign-In，無需密碼，JWT 保護所有 API
-- **PDF 上傳與閱讀**：最大 100MB，瀏覽器內渲染（presigned URL 直連 MinIO），自動記錄閱讀進度
-- **資料夾批次上傳**：選取整個資料夾，自動過濾非 PDF，最多 3 個並行上傳，即時進度顯示
-- **PDF 封面縮圖**：Ingestion 時由 PyMuPDF 自動生成，展示於書庫封面卡
-- **書目分類標籤**：可為每本書掛載多個分類標籤，書庫支援橫向篩選
-- **畫線知識單元**：選取文字建立畫線，附加筆記與頁碼；畫線自動嵌入向量並存入 Vectorize
-- **知識標籤**：階層式標籤（支援父子結構），可掛載至畫線；作為 RAG 的語意分類
-- **全文搜尋**：跨文件搜尋標題與畫線文字/筆記，支援標籤篩選
-- **RAG 問答**：自然語言提問 → Cloudflare Vectorize 向量搜尋 → LLM 生成答案 + 來源引用
-- **深色模式**：light / dark / system 三態切換
-- **管理後台**：Admin 管理使用者數量限制、查看系統統計
+| 模式 | 說明 | 部署方式 |
+|------|------|---------|
+| **Full mode**（完整模式） | 全功能：後端 API、MinIO、RAG 問答、畫線、標籤 | Docker Compose 自架 |
+| **Reader mode**（閱讀器模式） | 純前端 PDF 閱讀器，無需後端，PDF 存在本機 | GitHub Pages |
 
 ---
 
-## 快速啟動（生產模式）
+## 功能對照
+
+| 功能 | Full mode | Reader mode |
+|------|:---------:|:-----------:|
+| Google 登入 | ✓ | — |
+| PDF 上傳（雲端儲存） | ✓ | — |
+| PDF 閱讀（本機） | — | ✓ |
+| 閱讀進度同步 | ✓（後端） | ✓（localStorage） |
+| 資料夾批次上傳 | ✓ | — |
+| PDF 封面縮圖 | ✓ | — |
+| 書目分類標籤 | ✓ | — |
+| 畫線知識單元 | ✓ | — |
+| 知識標籤 | ✓ | — |
+| 全文搜尋 | ✓ | — |
+| RAG 問答 | ✓ | — |
+| 深色模式 | ✓ | ✓ |
+| 管理後台 | ✓ | — |
+
+---
+
+## 快速啟動
+
+### Reader mode（GitHub Pages）
+
+不需要任何後端，直接使用 GitHub Pages 免費部署：
+
+1. Fork 這個 repo
+2. GitHub → Settings → Pages → Source 選 **GitHub Actions**
+3. Push 到 `main` → GitHub Actions 自動 build 並部署
+
+部署完成後可在 `https://<你的帳號>.github.io/Knodex/` 使用純 PDF 閱讀器，PDF 存在瀏覽器本機，頁面重整後需重新選取檔案。
+
+---
+
+### Full mode（自架，完整功能）
 
 **需要：** Docker、Docker Compose、外部 MinIO、Firebase 專案、Cloudflare 帳號
 

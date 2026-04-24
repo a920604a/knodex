@@ -1,6 +1,30 @@
 # Architecture
 
-## 系統概覽
+## 運行模式
+
+Knodex 前端透過 build-time feature toggle 支援兩種模式，由 `VITE_APP_MODE` 環境變數在 build 時決定：
+
+```
+src/lib/mode.ts
+  export const isReaderMode = import.meta.env.VITE_APP_MODE === "reader"
+```
+
+| | Full mode（預設） | Reader mode（`VITE_APP_MODE=reader`） |
+|---|---|---|
+| 部署 | Docker Compose 自架 | GitHub Pages（純靜態） |
+| 後端依賴 | 需要 FastAPI + DB + MinIO | 無 |
+| 認證 | Firebase Google Sign-In | 無 |
+| PDF 儲存 | MinIO（雲端） | `URL.createObjectURL`（本機 session） |
+| 進度同步 | POST `/documents/{id}/progress` | localStorage |
+| 畫線 / 標籤 / RAG | 支援 | 不支援（UI 隱藏） |
+| Build 指令 | `npm run build` | `npm run build -- --mode github-pages` |
+| Config 檔 | `.env` | `frontend/.env.github-pages` |
+
+Reader mode 的 PDF bytes **從不離開使用者的瀏覽器**；頁面重整後 blob URL 失效，書庫 metadata 仍保留在 localStorage，但需重新選取 PDF 檔案。
+
+---
+
+## 系統概覽（Full mode）
 
 Knodex 是一個自架 PDF 知識管理系統，附 RAG 問答能力。使用者上傳 PDF 後，ARQ worker 在背景非同步解析、分塊、嵌入向量；使用者可在瀏覽器中閱讀、建立畫線、加標籤，並以自然語言向知識庫提問。
 
@@ -349,7 +373,25 @@ POST /query { query: "..." }
 
 ---
 
-## 對外 Port 對照
+## GitHub Pages 部署（Reader mode）
+
+```
+.github/workflows/deploy.yml
+ ├─ trigger: push to main（frontend/** 變更）或 workflow_dispatch
+ ├─ npm ci
+ ├─ npm run build -- --mode github-pages
+ │    → 讀取 frontend/.env.github-pages
+ │    → VITE_APP_MODE=reader → isReaderMode = true
+ │    → VITE_BASE_PATH=/{repo-name}/（由 workflow 動態帶入）
+ ├─ cp dist/index.html dist/404.html   ← SPA fallback（GitHub Pages 不支援 server routing）
+ └─ actions/deploy-pages → https://<user>.github.io/{repo-name}/
+```
+
+Reader mode build 完全不包含後端 API 呼叫、Firebase 初始化，是純靜態 SPA。
+
+---
+
+## 對外 Port 對照（Full mode）
 
 | 服務 | 對外 Port | 容器內 Port |
 |------|-----------|------------|
