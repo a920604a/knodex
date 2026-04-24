@@ -34,19 +34,13 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm ci
 
-      - name: Patch 404.html base path
-        # 將 404.html 中的 /REPO_NAME 替換成實際 repo 名稱
-        run: |
-          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
-          sed -i "s|/REPO_NAME|/$REPO_NAME|g" frontend/public/404.html
-
-      - name: Build
-        run: cd frontend && npm run build
+      - name: Build (reader mode)
+        run: cd frontend && npm run build -- --mode github-pages
         env:
-          # 後端公開地址，在 GitHub repo → Settings → Secrets → Actions 設定
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          # GitHub Pages project page 的 base path（例如 /knodex）
-          VITE_BASE_PATH: /${{ github.event.repository.name }}
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+
+      - name: Copy index.html to 404.html (SPA fallback)
+        run: cp frontend/dist/index.html frontend/dist/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
