@@ -54,6 +54,14 @@ def stream_pdf(key: str) -> io.BytesIO:
     return io.BytesIO(data)
 
 
+def presign_url(key: str, expires: int = 3600) -> str:
+    return _client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.minio_bucket, "Key": key},
+        ExpiresIn=expires,
+    )
+
+
 def delete_pdf(key: str) -> None:
     _client().delete_object(Bucket=settings.minio_bucket, Key=key)
 

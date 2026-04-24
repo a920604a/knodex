@@ -1,7 +1,6 @@
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -69,18 +68,17 @@ async def update_progress(
     return await document_service.update_progress(db, doc_id, body, current_user.id)
 
 
-@router.get("/{doc_id}/file")
-async def serve_pdf(
+@router.get("/{doc_id}/file-url")
+async def get_file_url(
     doc_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     doc = await document_service.get_document(db, doc_id, current_user.id)
-    try:
-        data = storage.download_pdf(doc.file_path)
-    except Exception:
+    if not storage.file_exists(doc.file_path):
         raise HTTPException(status_code=404, detail="PDF file not found in storage")
-    return StreamingResponse(iter([data]), media_type="application/pdf")
+    url = storage.presign_url(doc.file_path)
+    return {"url": url}
 
 
 @router.delete("/{doc_id}", status_code=204)

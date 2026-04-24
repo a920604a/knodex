@@ -9,8 +9,8 @@ import "@react-pdf-viewer/zoom/lib/styles/index.css";
 import { searchPlugin } from "@react-pdf-viewer/search";
 import "@react-pdf-viewer/search/lib/styles/index.css";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../api/client";
 import { getDocument, updateProgress } from "../api/documents";
+import { apiFetch } from "../lib/api";
 import type { Document } from "../types";
 import HighlightModal from "../components/HighlightModal";
 import HighlightSidebar from "../components/HighlightSidebar";
@@ -75,7 +75,7 @@ export default function ReaderPage() {
   const [filterTag, setFilterTag] = useState("");
   const [filterQ, setFilterQ] = useState("");
 
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isContinuous, setIsContinuous] = useState(false);
   const [isImmersive, setIsImmersive] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -104,12 +104,9 @@ export default function ReaderPage() {
 
   useEffect(() => {
     if (!id) return;
-    let objectUrl: string;
-    api.get(`/documents/${id}/file`, { responseType: "blob" }).then((res) => {
-      objectUrl = URL.createObjectURL(res.data);
-      setPdfBlobUrl(objectUrl);
-    });
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    apiFetch(`/documents/${id}/file-url`)
+      .then((r) => r.json())
+      .then((data: { url: string }) => setPdfUrl(data.url));
   }, [id]);
 
   const syncProgress = useCallback(
@@ -249,9 +246,9 @@ export default function ReaderPage() {
           {/* Task 4.1: onMouseUp wraps the viewer for text selection */}
           <div className="reader-viewer-container" onMouseUp={handleTextSelection}>
             <Worker workerUrl={new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url).href}>
-              {pdfBlobUrl ? (
+              {pdfUrl ? (
                 <Viewer
-                  fileUrl={pdfBlobUrl}
+                  fileUrl={pdfUrl}
                   characterMap={{ isCompressed: true, url: "/cmaps/" }}
                   plugins={[
                     pageNavigationPluginInstance,
