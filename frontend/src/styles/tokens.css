@@ -1419,3 +1419,90 @@ body {
 .rpv-search__highlight--current {
   background: rgba(191, 90, 242, 0.6) !important;
 }
+
+/* ── Folder Upload Progress ─────────────────────────────────────────────────── */
+
+.folder-upload-progress {
+  background: var(--color-surface);
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+.folder-upload-progress__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.folder-upload-progress__title {
+  font-size: var(--font-size-callout);
+  font-weight: 500;
+  color: var(--color-label);
+}
+.folder-upload-progress__bar-track {
+  height: 4px;
+  background: var(--color-fill);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.folder-upload-progress__bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.folder-upload-progress__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.folder-upload-progress__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-size: var(--font-size-caption);
+  padding: 2px 0;
+}
+.folder-upload-progress__icon {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+.folder-upload-progress__item--done .folder-upload-progress__icon { color: #34c759; }
+.folder-upload-progress__item--error .folder-upload-progress__icon { color: #ff3b30; }
+.folder-upload-progress__item--uploading .folder-upload-progress__icon { color: var(--color-accent); }
+.folder-upload-progress__item--pending .folder-upload-progress__icon { color: var(--color-tertiary-label); }
+.folder-upload-progress__item--skipped .folder-upload-progress__icon { color: var(--color-tertiary-label); }
+.folder-upload-progress__item--skipped .folder-upload-progress__name { color: var(--color-tertiary-label); }
+.folder-upload-progress__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-label);
+}
+.folder-upload-progress__error {
+  font-size: 11px;
+  color: #ff3b30;
+  flex-shrink: 0;
+}
+.folder-upload-progress__skip {
+  font-size: 11px;
+  color: var(--color-tertiary-label);
+  flex-shrink: 0;
+}
+.folder-upload-progress__more {
+  font-size: var(--font-size-caption);
+  color: var(--color-tertiary-label);
+  padding: 2px 0;
+}

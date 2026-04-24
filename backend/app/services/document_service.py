@@ -13,13 +13,6 @@ from app.schemas.document import ProgressUpdate
 from app.services import storage
 
 
-async def save_pdf(file: UploadFile) -> tuple[str, str]:
-    content = await file.read()
-    key = storage.upload_pdf(content, file.filename or "upload.pdf")
-    title = Path(file.filename or "untitled").stem
-    return key, title
-
-
 async def get_user_document_count(db: AsyncSession, user_id: uuid.UUID) -> int:
     result = await db.execute(
         select(func.count()).where(Document.user_id == user_id)
@@ -28,7 +21,17 @@ async def get_user_document_count(db: AsyncSession, user_id: uuid.UUID) -> int:
 
 
 async def create_document(db: AsyncSession, file: UploadFile, user_id: uuid.UUID) -> Document:
-    key, title = await save_pdf(file)
+    content = await file.read()
+    title = Path(file.filename or "untitled").stem
+
+    existing = await db.execute(
+        select(Document.id).where(Document.user_id == user_id, Document.title == title)
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail=f"「{title}」已存在")
+
+    key = storage.upload_pdf(content, file.filename or "upload.pdf")
+
     doc = Document(title=title, file_path=key, user_id=user_id, ingestion_status="pending")
     db.add(doc)
     await db.commit()
