@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { isReaderMode } from "../lib/mode";
 
 const Icons = {
   library: (
@@ -69,10 +70,12 @@ export default function Sidebar() {
 
   const nav = [
     { to: "/", label: "書庫", icon: Icons.library },
-    { to: "/query", label: "AI 問答", icon: Icons.query },
-    { to: "/search", label: "搜尋", icon: Icons.search },
-    { to: "/tags", label: "知識標籤", icon: Icons.tags },
-    ...(isAdmin ? [{ to: "/admin", label: "管理後台", icon: Icons.admin }] : []),
+    ...(!isReaderMode ? [
+      { to: "/query", label: "AI 問答", icon: Icons.query },
+      { to: "/search", label: "搜尋", icon: Icons.search },
+      { to: "/tags", label: "知識標籤", icon: Icons.tags },
+    ] : []),
+    ...(!isReaderMode && isAdmin ? [{ to: "/admin", label: "管理後台", icon: Icons.admin }] : []),
   ];
 
   return (

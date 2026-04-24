@@ -14,8 +14,8 @@ import { apiFetch } from "../lib/api";
 import type { Document } from "../types";
 import HighlightModal from "../components/HighlightModal";
 import HighlightSidebar from "../components/HighlightSidebar";
-
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+import { isReaderMode } from "../lib/mode";
+import * as localDocs from "../lib/localDocs";
 
 interface SelectionInfo {
   text: string;
@@ -81,10 +81,18 @@ export default function ReaderPage() {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showInspector, setShowInspector] = useState(false);
 
+  // Reader mode: blob URL state (may be null after page refresh)
+  const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(
+    () => (isReaderMode && id ? localDocs.getBlobUrl(id) : null)
+  );
+  const localDocData = isReaderMode && id
+    ? localDocs.listDocs().find((d) => d.id === id) ?? null
+    : null;
+  const reloadFileRef = useRef<HTMLInputElement>(null);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Task 2.3: Initialize plugins
   const pageNavigationPluginInstance = pageNavigationPlugin();
   const { jumpToPage } = pageNavigationPluginInstance;
 
@@ -97,13 +105,15 @@ export default function ReaderPage() {
   const searchPluginInstance = searchPlugin();
   const { ShowSearchPopoverButton } = searchPluginInstance;
 
+  // Full mode: load document metadata
   useEffect(() => {
-    if (!id) return;
+    if (!id || isReaderMode) return;
     getDocument(id).then(setDoc);
   }, [id]);
 
+  // Full mode: fetch presigned PDF URL
   useEffect(() => {
-    if (!id) return;
+    if (!id || isReaderMode) return;
     apiFetch(`/documents/${id}/file-url`)
       .then((r) => r.json())
       .then((data: { url: string }) => setPdfUrl(data.url));
@@ -112,15 +122,18 @@ export default function ReaderPage() {
   const syncProgress = useCallback(
     (page: number, isLast: boolean) => {
       if (!id) return;
+      if (isReaderMode) {
+        localDocs.saveProgress(id, page, isLast ? 1 : numPages > 0 ? page / numPages : 0);
+        return;
+      }
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         updateProgress(id, page, isLast ? "done" : "reading");
       }, 2000);
     },
-    [id]
+    [id, numPages]
   );
 
-  // Task 3.4: goToPage uses jumpToPage (0-indexed)
   const goToPage = useCallback(
     (page: number) => {
       const p = Math.max(1, Math.min(page, numPages));
@@ -130,7 +143,6 @@ export default function ReaderPage() {
     [numPages, syncProgress, jumpToPage]
   );
 
-  // Task 2.7: isContinuous toggle calls switchScrollMode
   useEffect(() => {
     switchScrollMode(isContinuous ? ScrollMode.Vertical : ScrollMode.Page);
   }, [isContinuous, switchScrollMode]);
@@ -161,8 +173,8 @@ export default function ReaderPage() {
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
-  // Task 4.1 & 4.2: handleTextSelection uses currentPage maintained by onPageChange
   const handleTextSelection = () => {
+    if (isReaderMode) return; // no highlights in reader mode
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) return;
     const text = sel.toString().trim();
@@ -172,16 +184,34 @@ export default function ReaderPage() {
     setShowModal(true);
   };
 
-  if (!doc) return <div className="page-content">載入中...</div>;
+  // Restore blob URL in reader mode
+  const handleReloadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    const url = localDocs.restoreBlob(id, file);
+    setLocalBlobUrl(url);
+    if (reloadFileRef.current) reloadFileRef.current.value = "";
+  };
 
-  const progress = numPages > 0 ? Math.round((currentPage / numPages) * 100) : Math.round((doc.progress ?? 0) * 100);
+  // Effective values based on mode
+  const effectivePdfUrl = isReaderMode ? localBlobUrl : pdfUrl;
+  const effectiveTitle = isReaderMode ? (localDocData?.title ?? "文件") : (doc?.title ?? "");
+  const effectiveNumPages = numPages;
+
+  // Show loading in full mode while doc/url not yet ready
+  if (!isReaderMode && !doc) return <div className="page-content">載入中...</div>;
+
+  const progress = effectiveNumPages > 0
+    ? Math.round((currentPage / effectiveNumPages) * 100)
+    : isReaderMode
+    ? Math.round((localDocData?.progress ?? 0) * 100)
+    : Math.round((doc?.progress ?? 0) * 100);
 
   return (
     <div className={`reader-layout${isImmersive ? " reader--immersive" : ""}`}>
       <div className="reader-header">
         <div className="reader-header__left">
           <button className="btn" onClick={() => nav("/")}>← 書庫</button>
-          {/* Task 3.3: toggle calls setIsContinuous; useEffect triggers switchScrollMode */}
           <button
             className={`btn${isContinuous ? " btn--primary" : ""}`}
             onClick={() => setIsContinuous((v) => !v)}
@@ -196,24 +226,24 @@ export default function ReaderPage() {
           >
             沉浸
           </button>
-          <button
-            className={`btn${showInspector ? " btn--primary" : ""}`}
-            onClick={() => setShowInspector((v) => !v)}
-          >
-            畫線
-          </button>
-          {/* Task 3.1: zoom controls */}
+          {!isReaderMode && (
+            <button
+              className={`btn${showInspector ? " btn--primary" : ""}`}
+              onClick={() => setShowInspector((v) => !v)}
+            >
+              畫線
+            </button>
+          )}
           <ZoomOutButton />
           <CurrentScale />
           <ZoomInButton />
-          {/* Task 3.2: PDF text search */}
           <ShowSearchPopoverButton />
         </div>
 
         <div className="reader-header__center">
-          <span className="reader-header__title">{doc.title}</span>
-          {numPages > 0 && (
-            <span className="reader-header__page">第 {currentPage} / {numPages} 頁</span>
+          <span className="reader-header__title">{effectiveTitle}</span>
+          {effectiveNumPages > 0 && (
+            <span className="reader-header__page">第 {currentPage} / {effectiveNumPages} 頁</span>
           )}
         </div>
 
@@ -238,17 +268,16 @@ export default function ReaderPage() {
                 onKeyDown={(e) => e.key === "Enter" && goToPage(Number(pageInput))}
                 style={{ width: 48, textAlign: "center" }}
               />
-              <span>/ {numPages || "?"}</span>
-              <button className="btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages}>下頁 ›</button>
+              <span>/ {effectiveNumPages || "?"}</span>
+              <button className="btn" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= effectiveNumPages}>下頁 ›</button>
             </div>
           )}
 
-          {/* Task 4.1: onMouseUp wraps the viewer for text selection */}
           <div className="reader-viewer-container" onMouseUp={handleTextSelection}>
             <Worker workerUrl={new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url).href}>
-              {pdfUrl ? (
+              {effectivePdfUrl ? (
                 <Viewer
-                  fileUrl={pdfUrl}
+                  fileUrl={effectivePdfUrl}
                   characterMap={{ isCompressed: true, url: "/cmaps/" }}
                   plugins={[
                     pageNavigationPluginInstance,
@@ -256,11 +285,12 @@ export default function ReaderPage() {
                     zoomPluginInstance,
                     searchPluginInstance,
                   ]}
+                  initialPage={isReaderMode && localDocData?.page ? localDocData.page - 1 : 0}
                   onPageChange={(e) => {
                     const page = e.currentPage + 1;
                     setCurrentPage(page);
                     setPageInput(String(page));
-                    syncProgress(page, page === numPages);
+                    syncProgress(page, page === effectiveNumPages);
                   }}
                   onDocumentLoad={(e) => {
                     setNumPages(e.doc.numPages);
@@ -271,6 +301,15 @@ export default function ReaderPage() {
                     </div>
                   )}
                 />
+              ) : isReaderMode ? (
+                // Reader mode: blob URL not available after page refresh
+                <div className="pdf-error" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+                  <p>頁面已重整，PDF 需重新載入</p>
+                  <button className="btn btn--primary" onClick={() => reloadFileRef.current?.click()}>
+                    選取 PDF 檔案
+                  </button>
+                  <input ref={reloadFileRef} type="file" accept=".pdf" hidden onChange={handleReloadFile} />
+                </div>
               ) : (
                 <div className="pdf-error">載入中…</div>
               )}
@@ -278,8 +317,8 @@ export default function ReaderPage() {
           </div>
         </div>
 
-        {/* Task 4.3: HighlightSidebar unchanged */}
-        {id && showInspector && (
+        {/* Highlight inspector: full mode only */}
+        {!isReaderMode && id && showInspector && (
           <div className="reader-inspector">
             <div className="reader-inspector__filters">
               <input className="input" value={filterQ} onChange={(e) => setFilterQ(e.target.value)} placeholder="搜尋畫線..." />
@@ -296,8 +335,8 @@ export default function ReaderPage() {
         )}
       </div>
 
-      {/* Task 4.3: HighlightModal unchanged */}
-      {showModal && selection && id && (
+      {/* Highlight modal: full mode only */}
+      {!isReaderMode && showModal && selection && id && (
         <HighlightModal
           documentId={id}
           selection={selection}
@@ -310,7 +349,7 @@ export default function ReaderPage() {
         <FloatingControls
           visible={controlsVisible}
           currentPage={currentPage}
-          numPages={numPages}
+          numPages={effectiveNumPages}
           isContinuous={isContinuous}
           onExit={() => setIsImmersive(false)}
           onToggleContinuous={() => setIsContinuous((v) => !v)}

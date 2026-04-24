@@ -16,6 +16,7 @@ export default function LibraryCard({
   onToggleTag,
   onDelete,
   onClick,
+  showTagging = true,
 }: {
   doc: Document;
   thumbUrl: string | null;
@@ -24,6 +25,7 @@ export default function LibraryCard({
   onToggleTag: (tag: DocumentTag) => void;
   onDelete: () => void;
   onClick: () => void;
+  showTagging?: boolean;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const hue = titleToHue(doc.title);
@@ -56,13 +58,15 @@ export default function LibraryCard({
       </div>
 
       <div className="library-card__actions" onClick={(e) => e.stopPropagation()}>
-        <TopicDropdown
-          allTags={allTags}
-          assignedTagIds={assignedTagIds}
-          onToggle={onToggleTag}
-          disabled={isBusy}
-          align="right"
-        />
+        {showTagging && (
+          <TopicDropdown
+            allTags={allTags}
+            assignedTagIds={assignedTagIds}
+            onToggle={onToggleTag}
+            disabled={isBusy}
+            align="right"
+          />
+        )}
         <button
           type="button"
           className="library-card__action-btn library-card__action-btn--danger"
