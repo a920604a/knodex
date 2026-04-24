@@ -47,3 +47,6 @@ alembic/versions/__pycache__/
 
 # Firebase service account credentials
 *-firebase-adminsdk-*.json
+
+
+.wrangler/

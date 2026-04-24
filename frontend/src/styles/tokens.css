@@ -769,12 +769,17 @@ body {
   top: calc(100% + 4px);
   left: 0;
   z-index: 200;
-  min-width: 220px;
+  min-width: 200px;
+  max-width: 240px;
   background: var(--color-surface);
   border: 1px solid var(--color-separator);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: var(--space-xs);
+}
+.topic-dropdown__menu--right {
+  left: auto;
+  right: 0;
 }
 .topic-dropdown__search {
   width: 100%;
@@ -786,7 +791,7 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 200px;
+  max-height: 160px;
   overflow-y: auto;
 }
 .topic-dropdown__item {
@@ -954,9 +959,11 @@ body {
   right: var(--space-xs);
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
   opacity: 0;
   transition: opacity 0.15s;
+  z-index: 10;
 }
 .library-card:hover .library-card__actions {
   opacity: 1;

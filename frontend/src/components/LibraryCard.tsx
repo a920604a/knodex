@@ -53,24 +53,23 @@ export default function LibraryCard({
             </span>
           </div>
         )}
+      </div>
 
-        <div className="library-card__actions" onClick={(e) => e.stopPropagation()}>
-          <div>
-            <TopicDropdown
-              allTags={allTags}
-              assignedTagIds={assignedTagIds}
-              onToggle={onToggleTag}
-              disabled={isBusy}
-            />
-          </div>
-          <button
-            type="button"
-            className="library-card__action-btn library-card__action-btn--danger"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          >
-            刪除
-          </button>
-        </div>
+      <div className="library-card__actions" onClick={(e) => e.stopPropagation()}>
+        <TopicDropdown
+          allTags={allTags}
+          assignedTagIds={assignedTagIds}
+          onToggle={onToggleTag}
+          disabled={isBusy}
+          align="right"
+        />
+        <button
+          type="button"
+          className="library-card__action-btn library-card__action-btn--danger"
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        >
+          刪除
+        </button>
       </div>
 
       <div className="library-card__meta">

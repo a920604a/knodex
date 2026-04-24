@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -17,13 +18,14 @@ class Settings(BaseSettings):
     jwt_expire_days: int = 7
 
     cf_account_id: str = ""
-    cf_api_token: str = ""
+    cf_api_token: str = Field(default="", alias="CLOUDFLARE_API_TOKEN")
     cf_vectorize_index_name: str = "knodex-chunks"
 
     firebase_credentials_json: str = ""
 
     class Config:
         env_file = ".env"
+        populate_by_name = True
 
 
 settings = Settings()

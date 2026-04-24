@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createHighlight } from "../api/highlights";
+import { addTags, createHighlight } from "../api/highlights";
 import { listTags } from "../api/tags";
 import type { Tag } from "../types";
 
@@ -25,7 +25,7 @@ export default function HighlightModal({ documentId, selection, onClose, onCreat
   useEffect(() => { listTags().then(setTags); }, []);
 
   const handleSubmit = async () => {
-    await createHighlight({
+    const h = await createHighlight({
       document_id: documentId,
       text: selection.text,
       note: note || undefined,
@@ -33,6 +33,9 @@ export default function HighlightModal({ documentId, selection, onClose, onCreat
       start_offset: selection.start_offset,
       end_offset: selection.end_offset,
     });
+    if (selectedTagIds.length > 0) {
+      await addTags(h.id, selectedTagIds);
+    }
     onCreated();
     onClose();
   };

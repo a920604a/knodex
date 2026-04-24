@@ -2,7 +2,7 @@
 
 - [x] 1.1 新增 Redis container 到 docker-compose.yml（image: redis:7-alpine）
 - [x] 1.2 新增 worker service 到 docker-compose.yml（depends_on: db, redis）
-- [x] 1.3 新增環境變數：`SECRET_KEY`（JWT）、`CF_ACCOUNT_ID`、`CF_API_TOKEN`、`CF_VECTORIZE_INDEX_NAME`、`REDIS_URL` 到 .env.example 和 docker-compose
+- [x] 1.3 新增環境變數：`SECRET_KEY`（JWT）、`CF_ACCOUNT_ID`、`CLOUDFLARE_API_TOKEN`、`CF_VECTORIZE_INDEX_NAME`、`REDIS_URL` 到 .env.example 和 docker-compose
 - [ ] 1.4 在 Cloudflare dashboard 建立 Vectorize index（384 dim，metric: cosine，model: @cf/baai/bge-small-en-v1.5）
 - [x] 1.5 新增 Python 依賴：`arq`, `python-jose`, `passlib[bcrypt]`, `httpx` 到 pyproject.toml
 

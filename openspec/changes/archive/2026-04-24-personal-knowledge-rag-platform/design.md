@@ -109,7 +109,7 @@ Knodex 目前是單人使用的 PDF 閱讀工具，後端為 FastAPI + PostgreSQ
 2. 現有文件（無 user_id）暫時保留 nullable，不自動指派給任何 user（未登入狀態的舊資料）
 3. docker-compose 新增 Redis container 和 worker service
 4. Cloudflare Vectorize index 建立（手動，透過 CF dashboard 或 wrangler CLI）
-5. 環境變數新增：`CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_VECTORIZE_INDEX_NAME`, `SECRET_KEY`（JWT）
+5. 環境變數新增：`CF_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CF_VECTORIZE_INDEX_NAME`, `SECRET_KEY`（JWT）
 
 ## Open Questions
 

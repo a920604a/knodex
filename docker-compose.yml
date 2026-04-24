@@ -36,7 +36,7 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SECRET_KEY: ${SECRET_KEY:-changeme-use-a-long-random-string-in-production}
       CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
-      CF_API_TOKEN: ${CF_API_TOKEN:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
       CF_VECTORIZE_INDEX_NAME: ${CF_VECTORIZE_INDEX_NAME:-knodex-chunks}
       FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
     ports:
@@ -60,7 +60,7 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-ebook}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
-      CF_API_TOKEN: ${CF_API_TOKEN:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
       CF_VECTORIZE_INDEX_NAME: ${CF_VECTORIZE_INDEX_NAME:-knodex-chunks}
       FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
     volumes:

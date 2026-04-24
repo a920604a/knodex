@@ -14,6 +14,10 @@ export default defineConfig({
       '^/(auth|query|document-tags|documents|highlights|tags|search|health)': {
         target: process.env.BACKEND_URL ?? 'http://localhost:18000',
         changeOrigin: true,
+        bypass(req) {
+          // Browser page navigation sends Accept: text/html — let Vite serve index.html
+          if (req.headers.accept?.includes('text/html')) return req.url;
+        },
       },
     },
   },

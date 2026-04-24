@@ -13,6 +13,8 @@ def _url(model: str) -> str:
 
 
 def _headers() -> dict:
+    if not settings.cf_api_token:
+        raise RuntimeError("CLOUDFLARE_API_TOKEN is not configured — set it in .env")
     return {"Authorization": f"Bearer {settings.cf_api_token}"}
 
 

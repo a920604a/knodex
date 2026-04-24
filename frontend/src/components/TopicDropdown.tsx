@@ -6,11 +6,13 @@ export default function TopicDropdown({
   assignedTagIds,
   onToggle,
   disabled,
+  align = "left",
 }: {
   allTags: DocumentTag[];
   assignedTagIds: Set<string>;
   onToggle: (tag: DocumentTag) => void;
   disabled: boolean;
+  align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -43,7 +45,7 @@ export default function TopicDropdown({
         設定主題 ▾
       </button>
       {open && (
-        <div className="topic-dropdown__menu">
+        <div className={`topic-dropdown__menu topic-dropdown__menu--${align}`}>
           <input
             className="input topic-dropdown__search"
             value={search}
