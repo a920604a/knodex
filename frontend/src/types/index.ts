@@ -3,8 +3,10 @@ export interface Document {
   title: string;
   file_path: string;
   status: "unread" | "reading" | "done";
+  ingestion_status: "pending" | "processing" | "completed" | "failed";
   progress: number;
   total_pages: number | null;
+  thumb_path: string | null;
   created_at: string;
   updated_at: string;
   document_tags: DocumentTag[];

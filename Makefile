@@ -20,7 +20,7 @@ build:
 dev: dev-backend dev-frontend
 
 dev-backend:
-	docker compose up -d db backend 
+	docker compose up -d db redis backend worker
 
 dev-frontend:
 	docker compose up -d frontend-dev

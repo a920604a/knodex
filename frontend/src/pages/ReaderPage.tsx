@@ -10,6 +10,7 @@ import { searchPlugin } from "@react-pdf-viewer/search";
 import "@react-pdf-viewer/search/lib/styles/index.css";
 import { useNavigate, useParams } from "react-router-dom";
 import { getDocument, updateProgress } from "../api/documents";
+import { apiFetch } from "../lib/api";
 import type { Document } from "../types";
 import HighlightModal from "../components/HighlightModal";
 import HighlightSidebar from "../components/HighlightSidebar";
@@ -74,7 +75,8 @@ export default function ReaderPage() {
   const [filterTag, setFilterTag] = useState("");
   const [filterQ, setFilterQ] = useState("");
 
-  const [isContinuous, setIsContinuous] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isContinuous, setIsContinuous] = useState(true);
   const [isImmersive, setIsImmersive] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showInspector, setShowInspector] = useState(false);
@@ -98,6 +100,13 @@ export default function ReaderPage() {
   useEffect(() => {
     if (!id) return;
     getDocument(id).then(setDoc);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    apiFetch(`/documents/${id}/file-url`)
+      .then((r) => r.json())
+      .then((data: { url: string }) => setPdfUrl(data.url));
   }, [id]);
 
   const syncProgress = useCallback(
@@ -237,32 +246,34 @@ export default function ReaderPage() {
           {/* Task 4.1: onMouseUp wraps the viewer for text selection */}
           <div className="reader-viewer-container" onMouseUp={handleTextSelection}>
             <Worker workerUrl={new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url).href}>
-              <Viewer
-                fileUrl={`${API_URL}/documents/${id}/file`}
-                characterMap={{ isCompressed: true, url: "/cmaps/" }}
-                plugins={[
-                  pageNavigationPluginInstance,
-                  scrollModePluginInstance,
-                  zoomPluginInstance,
-                  searchPluginInstance,
-                ]}
-                // Task 2.4: 0→1 indexed page tracking + progress sync
-                onPageChange={(e) => {
-                  const page = e.currentPage + 1;
-                  setCurrentPage(page);
-                  setPageInput(String(page));
-                  syncProgress(page, page === numPages);
-                }}
-                // Task 2.5: get total page count on load
-                onDocumentLoad={(e) => {
-                  setNumPages(e.doc.numPages);
-                }}
-                renderError={() => (
-                  <div className="pdf-error">
-                    PDF 檔案無法載入，可能已從儲存空間中刪除。請重新上傳。
-                  </div>
-                )}
-              />
+              {pdfUrl ? (
+                <Viewer
+                  fileUrl={pdfUrl}
+                  characterMap={{ isCompressed: true, url: "/cmaps/" }}
+                  plugins={[
+                    pageNavigationPluginInstance,
+                    scrollModePluginInstance,
+                    zoomPluginInstance,
+                    searchPluginInstance,
+                  ]}
+                  onPageChange={(e) => {
+                    const page = e.currentPage + 1;
+                    setCurrentPage(page);
+                    setPageInput(String(page));
+                    syncProgress(page, page === numPages);
+                  }}
+                  onDocumentLoad={(e) => {
+                    setNumPages(e.doc.numPages);
+                  }}
+                  renderError={() => (
+                    <div className="pdf-error">
+                      PDF 檔案無法載入，可能已從儲存空間中刪除。請重新上傳。
+                    </div>
+                  )}
+                />
+              ) : (
+                <div className="pdf-error">載入中…</div>
+              )}
             </Worker>
           </div>
         </div>

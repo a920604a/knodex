@@ -9,11 +9,14 @@ from app.schemas.document_tag import DocumentTagOut
 
 class DocumentOut(BaseModel):
     id: uuid.UUID
+    user_id: uuid.UUID | None = None
     title: str
     file_path: str
     status: str
+    ingestion_status: str = "pending"
     progress: float
     total_pages: int | None
+    thumb_path: str | None = None
     created_at: datetime
     updated_at: datetime
     document_tags: list[DocumentTagOut] = []
@@ -25,8 +28,10 @@ class DocumentListItem(BaseModel):
     id: uuid.UUID
     title: str
     status: str
+    ingestion_status: str = "pending"
     progress: float
     total_pages: int | None
+    thumb_path: str | None = None
     created_at: datetime
     updated_at: datetime
     document_tags: list[DocumentTagOut] = []

@@ -10,27 +10,35 @@ PDF → 閱讀 → 畫線 → 標籤 → 搜尋 → (未來) RAG
 
 ## 功能
 
-- **PDF 上傳與閱讀**：支援最大 100MB，瀏覽器內逐頁渲染，自動記錄閱讀進度
+- **Google 登入**：Firebase Google Sign-In，無需密碼，JWT 保護所有 API
+- **PDF 上傳與閱讀**：支援最大 100MB，瀏覽器內逐頁渲染（presigned URL 直連 MinIO），自動記錄閱讀進度
 - **畫線知識單元**：選取文字即可建立畫線，附加筆記與頁碼位置
 - **階層式標籤**：支援父子標籤結構，可掛載多個標籤至畫線
 - **全文搜尋**：跨文件搜尋標題與畫線文字/筆記，支援標籤篩選
+- **深色模式**：light / dark / system 三態切換，Sidebar 底部可即時切換
 - **RAG-ready**：PDF 自動分塊（500 tokens, overlap 100）存入 `document_chunks`，預留 pgvector 欄位
 
 ---
 
 ## 快速啟動（生產模式）
 
-**需要：** Docker、Docker Compose、外部 MinIO（或 S3 相容服務）
+**需要：** Docker、Docker Compose、外部 MinIO（或 S3 相容服務）、Firebase 專案
 
 ```bash
 # 1. 設定環境變數
 cp .env.example .env
-# 編輯 .env，填入 MinIO 連線資訊
+# 編輯 .env，填入 MinIO 連線資訊與 Firebase 設定
 
-# 2. 建置前端 + 啟動所有服務
+# 2. 放置 Firebase Admin SDK 金鑰（不可 commit）
+cp /path/to/your-firebase-adminsdk-xxx.json backend/
+
+# 3. 建置前端 + 啟動所有服務
 make prod
 
-# 3. 開啟瀏覽器
+# 4. 首次部署：先用 Google 登入建立帳號，再執行 bootstrap
+docker compose exec backend uv run python scripts/bootstrap_user.py <your-email>
+
+# 5. 開啟瀏覽器
 open http://localhost:18080
 ```
 
@@ -62,11 +70,23 @@ open http://localhost:5173
 `.env` 設定（根目錄，對應 `docker-compose.yml`）：
 
 ```env
+# MinIO（PDF 物件儲存）
 MINIO_ENDPOINT=http://your-minio-host:9000
 MINIO_ACCESS_KEY=your-access-key
 MINIO_SECRET_KEY=your-secret-key
 MINIO_BUCKET=ebook
+
+# Firebase Admin（後端驗證 Google ID Token）
+FIREBASE_CREDENTIALS_JSON=/app/your-firebase-adminsdk-xxx.json
+
+# Firebase Web（前端 SDK）
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_APP_ID=your-app-id
 ```
+
+> Firebase Admin SDK 金鑰 JSON 需掛載至後端容器，不可 commit 至 git（已加入 `.gitignore`）。
 
 ---
 
@@ -92,12 +112,13 @@ make clean-db        # 清除本地 pgdata
 | 層 | 技術 |
 |----|------|
 | 前端 | React 18 + TypeScript + Vite |
-| PDF 渲染 | react-pdf（PDF.js） |
+| PDF 渲染 | @react-pdf-viewer（PDF.js） |
 | 後端 | FastAPI + Python 3.12 |
 | 套件管理 | uv + pyproject.toml |
 | 資料庫 | PostgreSQL 16 |
 | ORM | SQLAlchemy 2.0（async） |
 | 物件儲存 | MinIO（S3 相容）via boto3 |
+| 認證 | Firebase Google Sign-In + JWT |
 | PDF 解析 | PyMuPDF（fitz） |
 | 分塊 | tiktoken cl100k_base |
 

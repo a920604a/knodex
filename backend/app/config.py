@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -10,8 +11,21 @@ class Settings(BaseSettings):
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "ebook"
 
+    redis_url: str = "redis://localhost:6379"
+
+    secret_key: str = "changeme-use-a-long-random-string-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_days: int = 7
+
+    cf_account_id: str = ""
+    cf_api_token: str = Field(default="", alias="CLOUDFLARE_API_TOKEN")
+    cf_vectorize_index_name: str = "knodex-chunks"
+
+    firebase_credentials_json: str = ""
+
     class Config:
         env_file = ".env"
+        populate_by_name = True
 
 
 settings = Settings()

@@ -8,13 +8,18 @@ dependencies = [
     "sqlalchemy[asyncio]==2.0.36",
     "asyncpg==0.30.0",
     "alembic==1.14.0",
-    "pydantic==2.10.3",
+    "pydantic[email]==2.10.3",
     "pydantic-settings==2.7.0",
     "python-multipart==0.0.20",
     "aiofiles==24.1.0",
     "boto3==1.35.99",
     "pymupdf==1.25.1",
     "tiktoken==0.8.0",
+    "arq==0.26.3",
+    "python-jose[cryptography]==3.3.0",
+    "passlib[bcrypt]==1.7.4",
+    "httpx==0.28.1",
+    "firebase-admin>=6.5.0",
 ]
 
 [dependency-groups]

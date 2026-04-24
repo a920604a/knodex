@@ -54,6 +54,38 @@ def stream_pdf(key: str) -> io.BytesIO:
     return io.BytesIO(data)
 
 
+def presign_url(key: str, expires: int = 3600) -> str:
+    return _client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.minio_bucket, "Key": key},
+        ExpiresIn=expires,
+    )
+
+
+def upload_thumbnail(key: str, data: bytes) -> None:
+    _client().put_object(
+        Bucket=settings.minio_bucket,
+        Key=key,
+        Body=data,
+        ContentType="image/jpeg",
+    )
+
+
+def presign_thumb_url(key: str, expires: int = 3600) -> str:
+    return _client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.minio_bucket, "Key": key},
+        ExpiresIn=expires,
+    )
+
+
+def delete_thumbnail(key: str) -> None:
+    try:
+        _client().delete_object(Bucket=settings.minio_bucket, Key=key)
+    except Exception:
+        pass
+
+
 def delete_pdf(key: str) -> None:
     _client().delete_object(Bucket=settings.minio_bucket, Key=key)
 

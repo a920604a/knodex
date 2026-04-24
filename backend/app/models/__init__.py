@@ -4,6 +4,8 @@ from app.models.document_tag import DocumentTag, DocumentTagLink
 from app.models.highlight import Highlight
 from app.models.tag import Tag, HighlightTag
 from app.models.chunk import DocumentChunk, Embedding
+from app.models.user import User
+from app.models.query_log import QueryLog
 
 __all__ = [
     "Base",
@@ -15,4 +17,6 @@ __all__ = [
     "HighlightTag",
     "DocumentChunk",
     "Embedding",
+    "User",
+    "QueryLog",
 ]

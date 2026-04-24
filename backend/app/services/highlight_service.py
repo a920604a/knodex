@@ -28,8 +28,14 @@ def _attach_tags(highlight: Highlight) -> Highlight:
     return highlight
 
 
-async def create_highlight(db: AsyncSession, body: HighlightCreate) -> Highlight:
-    doc = await db.get(Document, body.document_id)
+async def create_highlight(
+    db: AsyncSession, body: HighlightCreate, user_id: uuid.UUID | None = None
+) -> Highlight:
+    stmt = select(Document).where(Document.id == body.document_id)
+    if user_id is not None:
+        stmt = stmt.where(Document.user_id == user_id)
+    result = await db.execute(stmt)
+    doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -46,11 +52,16 @@ async def list_highlights(
     q: str | None,
     tag: str | None,
     tag_id: uuid.UUID | None,
+    user_id: uuid.UUID | None = None,
 ) -> list[Highlight]:
     stmt = (
         select(Highlight)
         .options(selectinload(Highlight.tag_links).selectinload(HighlightTag.tag))
+        .join(Highlight.document)
     )
+
+    if user_id is not None:
+        stmt = stmt.where(Document.user_id == user_id)
 
     if document_id:
         stmt = stmt.where(Highlight.document_id == document_id).order_by(
@@ -77,12 +88,21 @@ async def list_highlights(
     return highlights
 
 
-async def get_highlight(db: AsyncSession, highlight_id: uuid.UUID) -> Highlight:
+async def get_highlight(
+    db: AsyncSession, highlight_id: uuid.UUID, user_id: uuid.UUID | None = None
+) -> Highlight:
     h = await _load_highlight(db, highlight_id)
+    if user_id is not None:
+        doc = await db.get(Document, h.document_id)
+        if not doc or doc.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Highlight not found")
     return _attach_tags(h)
 
 
-async def patch_highlight(db: AsyncSession, highlight_id: uuid.UUID, body: HighlightPatch) -> Highlight:
+async def patch_highlight(
+    db: AsyncSession, highlight_id: uuid.UUID, body: HighlightPatch, user_id: uuid.UUID | None = None
+) -> Highlight:
+    await get_highlight(db, highlight_id, user_id)
     h = await _load_highlight(db, highlight_id)
     h.note = body.note
     await db.commit()

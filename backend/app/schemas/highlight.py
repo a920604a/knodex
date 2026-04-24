@@ -31,6 +31,7 @@ class HighlightOut(BaseModel):
     page: int
     start_offset: int
     end_offset: int
+    embed_status: str = "pending"
     created_at: datetime
     tags: list[TagOut] = []
 

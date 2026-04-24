@@ -24,6 +24,11 @@ export default function BookCard({
         <div className="book-card__info">
           <span className="book-card__title">{doc.title}</span>
           <span className="doc-card__status">{doc.status}</span>
+          {doc.ingestion_status !== "completed" && (
+            <span className={doc.ingestion_status === "failed" ? "badge--error" : "badge--warning"}>
+              {doc.ingestion_status}
+            </span>
+          )}
         </div>
         <button
           className="btn btn--danger doc-card__delete"
