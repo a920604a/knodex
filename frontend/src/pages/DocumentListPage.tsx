@@ -3,15 +3,16 @@ import { useNavigate } from "react-router-dom";
 import {
   addDocumentTag,
   deleteDocument,
+  getDocumentThumbUrl,
   listDocuments,
   removeDocumentTag,
   uploadDocument,
 } from "../api/documents";
 import { getDocumentTagTree } from "../api/documentTags";
 import type { Document, DocumentTag, DocumentTagTree } from "../types";
-import BookCard from "../components/BookCard";
 import HeroShelf from "../components/HeroShelf";
-import TopicRail from "../components/TopicRail";
+import LibraryCard from "../components/LibraryCard";
+import TopicBar from "../components/TopicBar";
 
 function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? value : [];
@@ -27,13 +28,29 @@ export default function DocumentListPage() {
   const [uploading, setUploading] = useState(false);
   const [busyDocs, setBusyDocs] = useState<Record<string, boolean>>({});
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [thumbUrls, setThumbUrls] = useState<Map<string, string>>(new Map());
   const fileRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
 
   const load = async () => {
     const [documents, tree] = await Promise.all([listDocuments(), getDocumentTagTree()]);
-    setDocs(asArray<Document>(documents));
+    const docList = asArray<Document>(documents);
+    setDocs(docList);
     setTagTree(asArray<DocumentTagTree>(tree));
+
+    // Batch fetch thumb URLs
+    const entries = await Promise.allSettled(
+      docList
+        .filter((d) => d.thumb_path)
+        .map((d) => getDocumentThumbUrl(d.id).then((url) => [d.id, url] as [string, string]))
+    );
+    const map = new Map<string, string>();
+    for (const result of entries) {
+      if (result.status === "fulfilled") {
+        map.set(result.value[0], result.value[1]);
+      }
+    }
+    setThumbUrls(map);
   };
 
   useEffect(() => { load(); }, []);
@@ -121,7 +138,16 @@ export default function DocumentListPage() {
 
       {docs.length > 0 && (
         <div className="library-page">
-          <TopicRail
+          <section className="library-section">
+            <h2 className="library-section__heading">最近閱讀</h2>
+            <HeroShelf
+              docs={recentDocs}
+              thumbUrls={thumbUrls}
+              onNavigate={(id) => nav(`/reader/${id}`)}
+            />
+          </section>
+
+          <TopicBar
             tags={allTags}
             countByTagId={countByTagId}
             untaggedCount={untaggedDocs.length}
@@ -129,40 +155,34 @@ export default function DocumentListPage() {
             onSelect={setSelectedTagId}
           />
 
-          <div className="library-main">
-            <section className="library-section">
-              <h2 className="library-section__heading">最近閱讀</h2>
-              <HeroShelf docs={recentDocs} onNavigate={(id) => nav(`/reader/${id}`)} />
-            </section>
-
-            <section className="library-section">
-              <h2 className="library-section__heading">
-                {selectedTagId === null
-                  ? "全部書目"
-                  : selectedTagId === "untagged"
-                  ? "未歸類"
-                  : (allTags.find((t) => t.id === selectedTagId)?.name ?? "書目")}
-                <span className="library-section__count">{filteredDocs.length}</span>
-              </h2>
-              {filteredDocs.length === 0 ? (
-                <p className="empty-state">此主題目前沒有書。</p>
-              ) : (
-                <ul className="doc-list">
-                  {filteredDocs.map((doc) => (
-                    <BookCard
-                      key={doc.id}
-                      doc={doc}
-                      allTags={allTags}
-                      isBusy={busyDocs[doc.id] ?? false}
-                      onToggleTag={(tag) => handleToggleTag(doc, tag)}
-                      onDelete={() => handleDelete(doc)}
-                      onClick={() => nav(`/reader/${doc.id}`)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
+          <section className="library-section">
+            <h2 className="library-section__heading">
+              {selectedTagId === null
+                ? "全部書目"
+                : selectedTagId === "untagged"
+                ? "未歸類"
+                : (allTags.find((t) => t.id === selectedTagId)?.name ?? "書目")}
+              <span className="library-section__count">{filteredDocs.length}</span>
+            </h2>
+            {filteredDocs.length === 0 ? (
+              <p className="empty-state">此主題目前沒有書。</p>
+            ) : (
+              <div className="library-grid">
+                {filteredDocs.map((doc) => (
+                  <LibraryCard
+                    key={doc.id}
+                    doc={doc}
+                    thumbUrl={thumbUrls.get(doc.id) ?? null}
+                    allTags={allTags}
+                    isBusy={busyDocs[doc.id] ?? false}
+                    onToggleTag={(tag) => handleToggleTag(doc, tag)}
+                    onDelete={() => handleDelete(doc)}
+                    onClick={() => nav(`/reader/${doc.id}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>

@@ -25,3 +25,6 @@ export const addDocumentTag = (id: string, tagId: string) =>
 
 export const removeDocumentTag = (id: string, tagId: string) =>
   api.delete(`/documents/${id}/tags/${tagId}`);
+
+export const getDocumentThumbUrl = (id: string): Promise<string> =>
+  api.get<{ url: string }>(`/documents/${id}/thumb-url`).then((r) => r.data.url);

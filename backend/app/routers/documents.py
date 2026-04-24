@@ -81,6 +81,19 @@ async def get_file_url(
     return {"url": url}
 
 
+@router.get("/{doc_id}/thumb-url")
+async def get_thumb_url(
+    doc_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = await document_service.get_document(db, doc_id, current_user.id)
+    if not doc.thumb_path:
+        raise HTTPException(status_code=404, detail="Thumbnail not available")
+    url = storage.presign_thumb_url(doc.thumb_path)
+    return {"url": url}
+
+
 @router.delete("/{doc_id}", status_code=204)
 async def delete_document(
     doc_id: uuid.UUID,
@@ -92,6 +105,8 @@ async def delete_document(
         storage.delete_pdf(doc.file_path)
     except Exception:
         pass
+    if doc.thumb_path:
+        storage.delete_thumbnail(doc.thumb_path)
     # Delete vectors from Vectorize
     from app.services.cf_vectorize import delete_by_document
     await delete_by_document(str(doc_id))

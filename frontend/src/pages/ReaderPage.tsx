@@ -76,7 +76,7 @@ export default function ReaderPage() {
   const [filterQ, setFilterQ] = useState("");
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isContinuous, setIsContinuous] = useState(false);
+  const [isContinuous, setIsContinuous] = useState(true);
   const [isImmersive, setIsImmersive] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showInspector, setShowInspector] = useState(false);

@@ -16,6 +16,7 @@ class DocumentOut(BaseModel):
     ingestion_status: str = "pending"
     progress: float
     total_pages: int | None
+    thumb_path: str | None = None
     created_at: datetime
     updated_at: datetime
     document_tags: list[DocumentTagOut] = []
@@ -30,6 +31,7 @@ class DocumentListItem(BaseModel):
     ingestion_status: str = "pending"
     progress: float
     total_pages: int | None
+    thumb_path: str | None = None
     created_at: datetime
     updated_at: datetime
     document_tags: list[DocumentTagOut] = []

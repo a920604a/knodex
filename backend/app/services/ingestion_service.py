@@ -35,6 +35,22 @@ def _chunk_tokens(tokens: list[int]) -> list[list[int]]:
     return chunks
 
 
+def _generate_thumbnail(pdf_bytes: bytes, doc_id: uuid.UUID) -> str | None:
+    try:
+        pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
+        page = pdf[0]
+        mat = fitz.Matrix(0.37, 0.37)  # ~180px wide from A4 @ 72dpi
+        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+        thumb_bytes = pix.tobytes("jpeg")
+        pdf.close()
+        key = f"{doc_id}_thumb.jpg"
+        storage.upload_thumbnail(key, thumb_bytes)
+        return key
+    except Exception:
+        logger.warning("Ingestion: thumbnail generation failed for document %s", doc_id)
+        return None
+
+
 async def run_ingestion(document_id: str) -> None:
     doc_uuid = uuid.UUID(document_id)
     async with AsyncSessionLocal() as db:
@@ -52,6 +68,11 @@ async def run_ingestion(document_id: str) -> None:
 
             pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
             total_pages = len(pdf)
+
+            # Generate thumbnail from first page
+            thumb_key = _generate_thumbnail(pdf_bytes, doc_uuid)
+            if thumb_key:
+                doc.thumb_path = thumb_key
 
             # Extract text per page
             pages_text: list[tuple[int, str]] = []
