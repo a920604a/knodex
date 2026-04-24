@@ -2,17 +2,20 @@
 
 ## 系統概覽
 
-Knodex 是一個自架 PDF 知識管理系統。使用者上傳 PDF 後，系統在背景非同步解析並分塊，使用者可在瀏覽器中閱讀、建立畫線知識單元、加上標籤，並透過全文搜尋查找。
+Knodex 是一個自架 PDF 知識管理系統，附 RAG 問答能力。使用者上傳 PDF 後，ARQ worker 在背景非同步解析、分塊、嵌入向量；使用者可在瀏覽器中閱讀、建立畫線、加標籤，並以自然語言向知識庫提問。
 
 ```
 瀏覽器（React）
     ↕ HTTP / REST
 FastAPI 後端
-    ↕ asyncpg          ↕ boto3 (S3)
-PostgreSQL          MinIO（物件儲存）
+    ↕ asyncpg          ↕ boto3 (S3)      ↕ arq (Redis)
+PostgreSQL          MinIO（物件儲存）   ARQ Worker
+                                            ↕ httpx
+                                        Cloudflare
+                                        (Vectorize + Workers AI)
 ```
 
-**MinIO 是唯一的 PDF 檔案真實來源。** 後端啟動時會自動將 MinIO 上的檔案同步進 DB（見 Startup Sync）。
+**MinIO 是唯一的 PDF / 縮圖真實來源。** 後端啟動時會自動將 MinIO 上的 PDF 同步進 DB（見 Startup Sync）。
 
 ---
 
@@ -25,12 +28,16 @@ PostgreSQL          MinIO（物件儲存）
 | 後端 | FastAPI（Python 3.12） | 原生 async，Pydantic 驗證 |
 | 套件管理 | uv + pyproject.toml | 快速、可重現的依賴管理 |
 | ORM | SQLAlchemy 2.0（async） | 與 asyncpg 完整整合 |
-| 資料庫 | PostgreSQL 16 | pgvector 相容，全文搜尋 |
-| Migration | Alembic（async） | Schema 版本管理 |
-| 物件儲存 | MinIO via boto3 | S3 相容，自架，PDF 二進位儲存 |
+| 資料庫 | PostgreSQL 16 | 穩定、支援複雜查詢 |
+| Migration | Alembic（async） | Schema 版本管理，啟動自動執行 |
+| Job Queue | ARQ（Redis-backed） | 非同步 worker，支援重試、逾時 |
+| 物件儲存 | MinIO via boto3 | S3 相容，自架，PDF / 縮圖二進位儲存 |
 | 認證 | Firebase Google Sign-In + JWT | 無密碼，Google 身份驗證 |
-| PDF 解析 | PyMuPDF（fitz） | 速度快，可取得文字座標 |
+| PDF 解析 | PyMuPDF（fitz） | 速度快，可取得文字 + 像素資料 |
 | 分塊 | tiktoken（cl100k_base） | Token 數與 LLM context 直接對應 |
+| Embedding | Cloudflare Workers AI（@cf/baai/bge-small-en-v1.5） | 384 維，低延遲，按需計費 |
+| LLM | Cloudflare Workers AI（@cf/meta/llama-3.1-8b-instruct） | RAG 答案生成 |
+| 向量儲存 | Cloudflare Vectorize | 管理向量索引，支援 metadata 過濾 |
 | 容器化 | Docker Compose | 單指令啟動所有服務 |
 
 ---
@@ -41,45 +48,61 @@ PostgreSQL          MinIO（物件儲存）
 Knodex/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI 入口，lifespan（bucket + startup sync），router 註冊
-│   │   ├── config.py            # pydantic-settings（DATABASE_URL, MinIO, Firebase 設定）
+│   │   ├── main.py              # FastAPI 入口；lifespan：migration、ARQ pool、ensure_default_tags、sync
+│   │   ├── config.py            # pydantic-settings（DB、MinIO、Redis、Cloudflare、Firebase）
 │   │   ├── database.py          # async engine, session factory, Base
-│   │   ├── models/              # SQLAlchemy ORM models
-│   │   │   ├── user.py          # User（firebase_uid, role）
-│   │   │   ├── document.py      # Document（user_id FK）
-│   │   │   ├── highlight.py     # Highlight
-│   │   │   ├── tag.py           # Tag, HighlightTag
-│   │   │   └── chunk.py         # DocumentChunk, Embedding（placeholder）
+│   │   ├── dependencies/
+│   │   │   └── auth.py          # get_current_user、require_admin
+│   │   ├── models/
+│   │   │   ├── user.py          # User（firebase_uid, role, pdf_limit, daily_query_limit）
+│   │   │   ├── document.py      # Document（ingestion_status, thumb_path）
+│   │   │   ├── document_tag.py  # DocumentTag + DocumentTagLink（書目分類標籤）
+│   │   │   ├── highlight.py     # Highlight（embed_status）
+│   │   │   ├── tag.py           # Tag + HighlightTag（知識標籤，掛載於畫線）
+│   │   │   ├── chunk.py         # DocumentChunk
+│   │   │   └── query_log.py     # QueryLog（每日用量追蹤）
 │   │   ├── schemas/             # Pydantic request / response schemas
-│   │   ├── routers/             # FastAPI routers（一個 router 對應一個資源）
-│   │   │   ├── auth.py          # POST /auth/firebase（Token Exchange）
-│   │   │   ├── documents.py
-│   │   │   ├── highlights.py
-│   │   │   ├── tags.py
-│   │   │   └── search.py
-│   │   └── services/            # 業務邏輯層（routers 只做路由，邏輯在 service）
-│   │       ├── firebase.py      # Firebase Admin SDK 單例初始化
+│   │   ├── routers/
+│   │   │   ├── auth.py          # POST /auth/firebase
+│   │   │   ├── documents.py     # CRUD + progress + tags + thumb-url
+│   │   │   ├── document_tags.py # /document-tags CRUD
+│   │   │   ├── highlights.py    # CRUD + tags
+│   │   │   ├── tags.py          # /tags 知識標籤 CRUD（樹狀）
+│   │   │   ├── search.py        # GET /search
+│   │   │   ├── query.py         # POST /query（RAG）
+│   │   │   └── admin.py         # /admin/users, /admin/stats
+│   │   └── services/
+│   │       ├── firebase.py      # Firebase Admin SDK 單例
+│   │       ├── storage.py       # MinIO 操作（upload / presign / thumb / delete）
+│   │       ├── sync_service.py  # 啟動時 MinIO → DB 單向同步
 │   │       ├── document_service.py
+│   │       ├── document_tag_service.py
 │   │       ├── highlight_service.py
 │   │       ├── tag_service.py
-│   │       ├── ingestion_service.py
-│   │       ├── storage.py       # MinIO 操作（upload/download/stream/presign/exists/delete）
-│   │       └── sync_service.py  # 啟動時 MinIO → DB 同步
+│   │       ├── ingestion_service.py  # 文字擷取 + 分塊（被 worker 呼叫）
+│   │       ├── cf_ai.py         # Cloudflare Workers AI（embed / generate）
+│   │       └── cf_vectorize.py  # Cloudflare Vectorize（upsert / query / delete）
+│   ├── worker/
+│   │   ├── main.py              # ARQ WorkerSettings（functions, max_jobs=10, timeout=300s, max_tries=3）
+│   │   └── tasks.py             # ingest_document、embed_highlight
 │   ├── scripts/
 │   │   └── bootstrap_user.py   # 首次部署初始化（設 admin、孤兒文件歸入使用者）
 │   ├── alembic/                 # Migration 設定與版本檔
-│   ├── tests/                   # pytest + httpx async 測試
-│   └── pyproject.toml           # 依賴定義（uv 管理）
+│   ├── tests/
+│   └── pyproject.toml
 ├── frontend/
 │   └── src/
-│       ├── api/                 # API 呼叫封裝（documents, highlights, tags, search）
-│       ├── contexts/            # React Context（AuthContext, ThemeContext）
-│       ├── lib/                 # 工具（firebase.ts SDK 初始化、api.ts apiFetch）
-│       ├── types/               # TypeScript 型別定義
+│       ├── api/                 # documents, documentTags, highlights, tags, search
+│       ├── contexts/            # AuthContext, ThemeContext
+│       ├── lib/                 # firebase.ts, api.ts, concurrency.ts
+│       ├── types/               # TypeScript 型別
 │       ├── styles/              # tokens.css（設計系統 CSS variables）
-│       ├── pages/               # 頁面元件（AuthPage, LibraryPage, ReaderPage, QueryPage）
-│       └── components/          # 共用元件（Sidebar, BookCard, HighlightSidebar, HighlightModal）
-├── .env.example                 # 環境變數範本
+│       ├── pages/               # DocumentListPage, ReaderPage, QueryPage, SearchPage,
+│       │                        # AuthPage, AdminPage
+│       └── components/          # HeroShelf, LibraryCard, TopicBar, TopicDropdown,
+│                                # FolderUploadProgress, HighlightSidebar, HighlightModal,
+│                                # Sidebar, TagManager, BookCard, DocumentTopicManager
+├── .env.example
 ├── docker-compose.yml
 ├── Makefile
 └── docs/
@@ -93,53 +116,74 @@ Knodex/
 users
   id UUID PK
   email TEXT UNIQUE
-  firebase_uid VARCHAR UNIQUE   ← Firebase Google 登入後寫入
-  role TEXT                     ← 'user' | 'admin'（預設 'user'）
+  firebase_uid VARCHAR UNIQUE
+  role TEXT                       ← 'user' | 'admin'
+  pdf_limit INT                   ← 預設 10
+  daily_query_limit INT           ← 預設 20
   created_at TIMESTAMP
 
 documents
   id UUID PK
-  user_id UUID FK → users.id   ← nullable（MinIO sync 進來的孤兒文件）
+  user_id UUID FK → users.id      ← nullable（MinIO sync 孤兒文件）
   title TEXT
-  file_path TEXT          ← MinIO object key（格式：{uuid}_{原始檔名}）
-  status TEXT             ← unread | reading | done
-  progress FLOAT          ← 0.0 ~ 1.0
+  file_path TEXT                  ← MinIO object key（{uuid}_{原始檔名}）
+  thumb_path TEXT                 ← MinIO object key（{doc_id}_thumb.jpg），nullable
+  status TEXT                     ← unread | reading | done
+  ingestion_status TEXT           ← pending | processing | completed | failed
+  progress FLOAT                  ← 0.0 ~ 1.0
   total_pages INT
   created_at, updated_at TIMESTAMP
+
+document_tags                     ← 書目分類標籤（書庫橫向篩選用）
+  id UUID PK
+  name TEXT
+  parent_id UUID FK → document_tags.id  ← 自我參照，支援階層
+
+document_tag_links                ← 書目 ↔ 書目標籤  多對多
+  document_id UUID FK → documents.id
+  tag_id UUID FK → document_tags.id
+  PRIMARY KEY (document_id, tag_id)
 
 highlights
   id UUID PK
   document_id UUID FK → documents.id
-  text TEXT             ← 選取的原文
-  note TEXT             ← 使用者筆記（可空）
-  page INT              ← 頁碼（1-based）
-  start_offset INT      ← 頁面內字元起始位置
-  end_offset INT        ← 頁面內字元結束位置
+  text TEXT
+  note TEXT
+  page INT
+  start_offset INT
+  end_offset INT
+  embed_status TEXT               ← pending | done | failed（Vectorize 嵌入狀態）
   created_at TIMESTAMP
 
-tags
+tags                              ← 知識標籤（掛載於畫線，用於 RAG 語意分類）
   id UUID PK
   name TEXT
-  parent_id UUID FK → tags.id  ← 自我參照，允許 NULL（根節點）
+  parent_id UUID FK → tags.id     ← 自我參照
 
-highlight_tags
+highlight_tags                    ← 畫線 ↔ 知識標籤  多對多
   highlight_id UUID FK → highlights.id
   tag_id UUID FK → tags.id
   PRIMARY KEY (highlight_id, tag_id)
 
-document_chunks              ← RAG-ready
+document_chunks
   id UUID PK
   document_id UUID FK → documents.id
   content TEXT
   chunk_index INT
   page INT
 
-embeddings                   ← 未來 pgvector 啟用後使用
+query_logs
   id UUID PK
-  ref_type TEXT              ← 'chunk' | 'highlight'
-  ref_id UUID
-  vector TEXT                ← 佔位，待換 Vector(1536)
+  user_id UUID FK → users.id
+  query_text TEXT
+  response_summary TEXT
+  tokens_used INT
+  created_at TIMESTAMP
 ```
+
+> **兩套標籤系統：**
+> - `document_tags`：書目分類（書庫篩選），不進向量索引
+> - `tags`（知識標籤）：掛載於畫線，畫線嵌入向量時 metadata 帶入標籤資訊，供 RAG 使用
 
 ---
 
@@ -153,29 +197,40 @@ embeddings                   ← 未來 pgvector 啟用後使用
 ### Documents
 | Method | Path | 說明 |
 |--------|------|------|
-| `POST` | `/documents` | 上傳 PDF（multipart） |
-| `GET` | `/documents` | 列出所有文件 |
+| `POST` | `/documents` | 上傳 PDF（multipart），先查重複再上傳 MinIO，enqueue ingestion |
+| `GET` | `/documents` | 列出文件（支援 `?document_tag_id` 過濾） |
 | `GET` | `/documents/{id}` | 取得單一文件 |
-| `GET` | `/documents/{id}/file-url` | 取得 MinIO presigned URL（1 小時有效） |
+| `GET` | `/documents/{id}/file-url` | presigned URL（PDF，1 小時有效） |
+| `GET` | `/documents/{id}/thumb-url` | presigned URL（縮圖 JPEG，1 小時有效） |
 | `POST` | `/documents/{id}/progress` | 更新閱讀進度與狀態 |
 | `POST` | `/documents/{id}/reprocess` | 重新觸發 ingestion |
-| `DELETE` | `/documents/{id}` | 刪除文件（同時刪除 MinIO 檔案） |
+| `POST` | `/documents/{id}/tags` | 掛載書目標籤 |
+| `DELETE` | `/documents/{id}/tags/{tag_id}` | 移除書目標籤 |
+| `DELETE` | `/documents/{id}` | 刪除文件（MinIO PDF + 縮圖 + DB cascade） |
+
+### Document Tags（書目分類標籤）
+| Method | Path | 說明 |
+|--------|------|------|
+| `POST` | `/document-tags` | 建立書目標籤（支援 `parent_id`） |
+| `GET` | `/document-tags` | 扁平列表 |
+| `GET` | `/document-tags/tree` | 巢狀樹狀結構 |
+| `DELETE` | `/document-tags/{id}` | 刪除（`?cascade=true` 遞迴刪子節點） |
 
 ### Highlights
 | Method | Path | 說明 |
 |--------|------|------|
-| `POST` | `/highlights` | 建立畫線 |
-| `GET` | `/highlights` | 列出畫線（支援 `?document_id` `?q` `?tag` `?tag_id`） |
+| `POST` | `/highlights` | 建立畫線，enqueue embed_highlight |
+| `GET` | `/highlights` | 列出（支援 `?document_id` `?q` `?tag` `?tag_id`） |
 | `GET` | `/highlights/{id}` | 取得單一畫線（含 tags） |
 | `PATCH` | `/highlights/{id}` | 更新筆記 |
 | `DELETE` | `/highlights/{id}` | 刪除畫線 |
-| `POST` | `/highlights/{id}/tags` | 掛載標籤 |
-| `DELETE` | `/highlights/{id}/tags/{tag_id}` | 移除畫線標籤 |
+| `POST` | `/highlights/{id}/tags` | 掛載知識標籤 |
+| `DELETE` | `/highlights/{id}/tags/{tag_id}` | 移除知識標籤 |
 
-### Tags
+### Tags（知識標籤）
 | Method | Path | 說明 |
 |--------|------|------|
-| `POST` | `/tags` | 建立標籤（支援 `parent_id`） |
+| `POST` | `/tags` | 建立知識標籤（支援 `parent_id`） |
 | `GET` | `/tags` | 扁平列表 |
 | `GET` | `/tags/tree` | 巢狀樹狀結構 |
 | `DELETE` | `/tags/{id}` | 刪除（`?cascade=true` 遞迴刪子節點） |
@@ -185,86 +240,112 @@ embeddings                   ← 未來 pgvector 啟用後使用
 |--------|------|------|
 | `GET` | `/search?q=` | 搜尋文件標題 + 畫線文字/筆記 |
 
+### Query（RAG）
+| Method | Path | 說明 |
+|--------|------|------|
+| `POST` | `/query` | 自然語言問答，回傳 answer + sources（受 daily_query_limit 限制） |
+
+### Admin
+| Method | Path | 說明 |
+|--------|------|------|
+| `GET` | `/admin/users` | 列出所有使用者及統計 |
+| `PATCH` | `/admin/users/{id}` | 修改 pdf_limit / daily_query_limit |
+| `GET` | `/admin/stats` | 系統統計（用戶數、文件數、今日查詢數、worker queue 深度） |
+
 ---
 
 ## Startup Sequence
 
-後端啟動時依序執行，HTTP server 在全部完成後才開始接受請求（sync 除外）：
-
 ```
 lifespan()
- ├─ run_migrations()                 ← alembic upgrade head（建表或 no-op）
- ├─ firebase.init_app()              ← Firebase Admin SDK 初始化（驗證 credentials JSON）
- ├─ storage.ensure_bucket()          ← 確保 MinIO bucket 存在
- └─ asyncio.create_task(
-        sync_minio_to_db()           ← 非阻塞背景同步
-    )
+ ├─ run_migrations()              ← alembic upgrade head
+ ├─ storage.ensure_bucket()       ← 確保 MinIO bucket 存在
+ ├─ ensure_default_tags()         ← 建立預設書目標籤（冪等）
+ ├─ asyncio.create_task(
+ │      sync_minio_to_db()        ← 非阻塞背景同步（MinIO → DB）
+ │  )
+ └─ arq_pool = create_pool(...)   ← 建立 Redis ARQ 連線池
 ```
 
-Migration 在啟動時自動跑，不需要手動執行 `make migrate`。
+HTTP server 在全部完成後才開始接受請求（sync 在背景繼續執行）。
 
 ### sync_minio_to_db
 
 ```
 sync_minio_to_db()
- ├─ list_objects()                   ← 取 MinIO 全部 key（支援 pagination）
- ├─ SELECT file_path FROM documents  ← 取 DB 已知 key
- ├─ diff = minio_keys - db_paths     ← Python set 差集
- └─ INSERT Document per new key      ← 補建缺少的 DB 記錄
+ ├─ list_objects()                ← 取 MinIO 全部 .pdf key（pagination）
+ ├─ SELECT file_path FROM documents
+ ├─ diff = minio_keys - db_paths
+ └─ INSERT Document per new key  ← 補建缺少的 DB 記錄
 ```
 
-只做單向（MinIO → DB）。MinIO 是真實來源，DB 記錄不會因為 MinIO 缺檔而被刪除。
+單向（MinIO → DB）。MinIO 是真實來源。
 
 ---
 
 ## Ingestion Pipeline
 
-```
-PDF Upload
-    │
-    ▼
-[API] 上傳至 MinIO → INSERT documents
-    │
-    ▼ BackgroundTask（不阻塞 API 回應）
-[Worker] 從 MinIO 下載 PDF → fitz.open()
-    │
-    ├─ 逐頁 get_text() → clean_text()
-    │      移除控制字元、合併多餘換行
-    │
-    ├─ tiktoken.encode(text)
-    │
-    ├─ chunk(tokens, size=500, overlap=100)
-    │
-    ├─ DELETE 舊 document_chunks（冪等）
-    │
-    ├─ INSERT document_chunks
-    │
-    └─ UPDATE documents.total_pages
-```
+PDF 上傳後，API 呼叫 `arq_pool.enqueue_job("ingest_document", doc_id)`，Worker 依序執行：
 
-**掃描版 PDF**：無文字層時記錄 warning log，跳過分塊，不報錯。
+```
+[API] 先查 DB 是否有 (user_id, title) 重複 → 409 若重複
+       → 上傳至 MinIO（key = {uuid}_{原始檔名}）
+       → INSERT documents（ingestion_status=pending）
+       → enqueue_job("ingest_document", doc_id)
+
+[Worker: ingest_document]
+ ├─ Phase 1: Download PDF from MinIO
+ ├─ Phase 2: Thumbnail
+ │    └─ PyMuPDF 第一頁 → JPEG（0.37x scale）
+ │       → upload_thumbnail → UPDATE documents.thumb_path（立即 commit）
+ ├─ Phase 3: Text Extraction
+ │    └─ fitz.open() → 逐頁 get_text() → clean_text()
+ │       若無文字層（掃描版）→ 記錄 warning，跳至 Finalize
+ ├─ Phase 4: Chunking
+ │    └─ tiktoken.encode → chunk(size=500, overlap=100)
+ │       → DELETE 舊 document_chunks（冪等）
+ │       → INSERT document_chunks
+ ├─ Phase 5: Embedding（每個 chunk，批次 upsert 20 個）
+ │    └─ cf_ai.embed(content)  ← @cf/baai/bge-small-en-v1.5，384 dims
+ │       → cf_vectorize.upsert([{id, values, metadata}])
+ │          metadata: { user_id, document_id, source_type="chunk", page, chunk_index, content[:500] }
+ └─ Finalize: UPDATE documents.total_pages, ingestion_status="completed"
+
+[Worker: embed_highlight]（畫線建立後 enqueue）
+ └─ cf_ai.embed(highlight.text)
+    → cf_vectorize.upsert([{id="highlight-{id}", values, metadata}])
+    → UPDATE highlights.embed_status = "done"
+```
 
 ---
 
-## 未來擴充（RAG）
+## RAG 查詢流程
 
 ```
-使用者輸入問題
-    ↓
-embedding(query) → vector
-    ↓
-pgvector ANN search → document_chunks
-    ↓
-top-k chunks → LLM context
-    ↓
-生成回答
+POST /query { query: "..." }
+ ├─ 檢查 daily_query_limit（QueryLog 今日筆數）
+ ├─ cf_ai.embed(query)           ← 同一個 embed model
+ ├─ cf_vectorize.query(
+ │      vector, filter={"user_id": {"$eq": user_id}}, top_k=5
+ │  )
+ ├─ 組合 context（chunks + highlights 的 content 片段）
+ ├─ cf_ai.generate(prompt)       ← @cf/meta/llama-3.1-8b-instruct
+ ├─ INSERT query_logs
+ └─ 回傳 { answer, sources: [{type, document_id, page, content}] }
 ```
 
-啟用步驟：
-1. `CREATE EXTENSION IF NOT EXISTS vector;`
-2. 將 `embeddings.vector` 欄位改為 `Vector(1536)`
-3. 新增 embedding worker（處理 chunks → 向量）
-4. 新增 RAG query service
+向量索引以 `user_id` 隔離，不同使用者的內容互不可見。
+
+---
+
+## MinIO 儲存規則
+
+| 類型 | Key 格式 | 說明 |
+|------|----------|------|
+| PDF | `{uuid4}_{原始檔名}` | 每次上傳獨立 key，不去重 |
+| 縮圖 | `{doc_id}_thumb.jpg` | Ingestion 時生成，與 Document 1:1 |
+
+重複偵測以 `(user_id, title)` 為唯一性，在 MinIO 上傳前就在 DB 層檢查，不產生孤兒檔案。
 
 ---
 
@@ -273,6 +354,7 @@ top-k chunks → LLM context
 | 服務 | 對外 Port | 容器內 Port |
 |------|-----------|------------|
 | PostgreSQL | 15432 | 5432 |
+| Redis | 16379 | 6379 |
 | FastAPI | 18000 | 8000 |
 | Nginx（生產） | 18080 | 80 |
 | Vite（開發） | 5173 | 5173 |
