@@ -43,24 +43,13 @@ export default function AuthPage() {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "80px auto", padding: "0 16px", textAlign: "center" }}>
-      <h1 style={{ marginBottom: 8 }}>Knodex</h1>
-      <p style={{ color: "var(--color-text-secondary, #666)", marginBottom: 32 }}>
-        你的個人知識庫
-      </p>
+    <div className="auth-page">
+      <h1>Knodex</h1>
+      <p className="auth-page__subtitle">你的個人知識庫</p>
       <button
+        className="btn btn--google"
         onClick={handleGoogleSignIn}
         disabled={loading}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "12px 24px",
-          fontSize: 15,
-          fontWeight: 500,
-          cursor: loading ? "not-allowed" : "pointer",
-          opacity: loading ? 0.7 : 1,
-        }}
       >
         <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
           <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
@@ -70,7 +59,7 @@ export default function AuthPage() {
         </svg>
         {loading ? "登入中…" : "使用 Google 登入"}
       </button>
-      {error && <p style={{ color: "red", marginTop: 16 }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
     </div>
   );
 }

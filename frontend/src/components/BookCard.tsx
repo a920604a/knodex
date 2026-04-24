@@ -25,13 +25,7 @@ export default function BookCard({
           <span className="book-card__title">{doc.title}</span>
           <span className="doc-card__status">{doc.status}</span>
           {doc.ingestion_status !== "completed" && (
-            <span style={{
-              fontSize: 10,
-              padding: "1px 5px",
-              borderRadius: 4,
-              background: doc.ingestion_status === "failed" ? "#fee2e2" : "#fef3c7",
-              color: doc.ingestion_status === "failed" ? "#991b1b" : "#92400e",
-            }}>
+            <span className={doc.ingestion_status === "failed" ? "badge--error" : "badge--warning"}>
               {doc.ingestion_status}
             </span>
           )}

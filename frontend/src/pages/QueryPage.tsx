@@ -42,55 +42,39 @@ export default function QueryPage() {
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px" }}>
-      <h2>Ask Your Knowledge Base</h2>
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+    <div className="page-content">
+      <h1>AI 問答</h1>
+      <form onSubmit={handleSubmit} className="search-bar">
         <input
-          style={{ flex: 1 }}
-          placeholder="Ask anything about your documents..."
+          className="input"
+          placeholder="問任何關於你的文件的問題…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button type="submit" disabled={loading}>
-          {loading ? "Thinking..." : "Ask"}
+        <button type="submit" className="btn btn--primary" disabled={loading}>
+          {loading ? "思考中…" : "送出"}
         </button>
       </form>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
 
       {result && (
         <div>
-          <div style={{ background: "var(--color-surface, #f5f5f5)", padding: 16, borderRadius: 8, marginBottom: 16 }}>
-            <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{result.answer}</p>
+          <div className="card" style={{ marginBottom: "var(--space-md)" }}>
+            <p className="query-answer">{result.answer}</p>
           </div>
           {result.sources.length > 0 && (
-            <div>
-              <h4>Sources</h4>
+            <div className="query-sources">
+              <h2>來源</h2>
               {result.sources.map((s, i) => (
-                <div
-                  key={i}
-                  style={{
-                    border: "1px solid var(--color-border, #ddd)",
-                    borderRadius: 6,
-                    padding: 12,
-                    marginBottom: 8,
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        background: s.type === "highlight" ? "#fef3c7" : "#dbeafe",
-                        color: s.type === "highlight" ? "#92400e" : "#1e40af",
-                      }}
-                    >
-                      {s.type === "highlight" ? "Your Highlight" : "Document"}
+                <div key={i} className="card card--sm">
+                  <div className="query-source__meta">
+                    <span className={s.type === "highlight" ? "badge--warning" : "tag-chip"}>
+                      {s.type === "highlight" ? "你的畫線" : "文件"}
                     </span>
-                    <span style={{ fontSize: 12, color: "#666" }}>Page {s.page}</span>
+                    <span className="query-source__page">第 {s.page} 頁</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 13 }}>{s.content}</p>
+                  <p style={{ margin: 0, fontSize: "var(--font-size-callout)" }}>{s.content}</p>
                 </div>
               ))}
             </div>
