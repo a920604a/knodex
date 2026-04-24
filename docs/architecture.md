@@ -21,13 +21,14 @@ PostgreSQL          MinIO（物件儲存）
 | 層級 | 技術 | 理由 |
 |------|------|------|
 | 前端 | React 18 + TypeScript + Vite | 型別安全、熱更新快 |
-| PDF 渲染 | react-pdf（PDF.js） | 支援文字層，可取得 offset |
+| PDF 渲染 | @react-pdf-viewer（PDF.js） | 支援文字層、Range requests |
 | 後端 | FastAPI（Python 3.12） | 原生 async，Pydantic 驗證 |
 | 套件管理 | uv + pyproject.toml | 快速、可重現的依賴管理 |
 | ORM | SQLAlchemy 2.0（async） | 與 asyncpg 完整整合 |
 | 資料庫 | PostgreSQL 16 | pgvector 相容，全文搜尋 |
 | Migration | Alembic（async） | Schema 版本管理 |
 | 物件儲存 | MinIO via boto3 | S3 相容，自架，PDF 二進位儲存 |
+| 認證 | Firebase Google Sign-In + JWT | 無密碼，Google 身份驗證 |
 | PDF 解析 | PyMuPDF（fitz） | 速度快，可取得文字座標 |
 | 分塊 | tiktoken（cl100k_base） | Token 數與 LLM context 直接對應 |
 | 容器化 | Docker Compose | 單指令啟動所有服務 |
@@ -41,35 +42,43 @@ Knodex/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py              # FastAPI 入口，lifespan（bucket + startup sync），router 註冊
-│   │   ├── config.py            # pydantic-settings（DATABASE_URL, MinIO 連線設定）
+│   │   ├── config.py            # pydantic-settings（DATABASE_URL, MinIO, Firebase 設定）
 │   │   ├── database.py          # async engine, session factory, Base
 │   │   ├── models/              # SQLAlchemy ORM models
-│   │   │   ├── document.py      # Document
+│   │   │   ├── user.py          # User（firebase_uid, role）
+│   │   │   ├── document.py      # Document（user_id FK）
 │   │   │   ├── highlight.py     # Highlight
 │   │   │   ├── tag.py           # Tag, HighlightTag
 │   │   │   └── chunk.py         # DocumentChunk, Embedding（placeholder）
 │   │   ├── schemas/             # Pydantic request / response schemas
 │   │   ├── routers/             # FastAPI routers（一個 router 對應一個資源）
+│   │   │   ├── auth.py          # POST /auth/firebase（Token Exchange）
 │   │   │   ├── documents.py
 │   │   │   ├── highlights.py
 │   │   │   ├── tags.py
 │   │   │   └── search.py
 │   │   └── services/            # 業務邏輯層（routers 只做路由，邏輯在 service）
+│   │       ├── firebase.py      # Firebase Admin SDK 單例初始化
 │   │       ├── document_service.py
 │   │       ├── highlight_service.py
 │   │       ├── tag_service.py
 │   │       ├── ingestion_service.py
-│   │       ├── storage.py       # MinIO 操作封裝（upload/download/delete/list）
+│   │       ├── storage.py       # MinIO 操作（upload/download/stream/presign/exists/delete）
 │   │       └── sync_service.py  # 啟動時 MinIO → DB 同步
+│   ├── scripts/
+│   │   └── bootstrap_user.py   # 首次部署初始化（設 admin、孤兒文件歸入使用者）
 │   ├── alembic/                 # Migration 設定與版本檔
 │   ├── tests/                   # pytest + httpx async 測試
 │   └── pyproject.toml           # 依賴定義（uv 管理）
 ├── frontend/
 │   └── src/
-│       ├── api/                 # axios 封裝（documents, highlights, tags, search）
+│       ├── api/                 # API 呼叫封裝（documents, highlights, tags, search）
+│       ├── contexts/            # React Context（AuthContext, ThemeContext）
+│       ├── lib/                 # 工具（firebase.ts SDK 初始化、api.ts apiFetch）
 │       ├── types/               # TypeScript 型別定義
-│       ├── pages/               # 頁面元件（DocumentListPage, ReaderPage, SearchPage）
-│       └── components/          # 共用元件（HighlightSidebar, HighlightModal, TagManager）
+│       ├── styles/              # tokens.css（設計系統 CSS variables）
+│       ├── pages/               # 頁面元件（AuthPage, LibraryPage, ReaderPage, QueryPage）
+│       └── components/          # 共用元件（Sidebar, BookCard, HighlightSidebar, HighlightModal）
 ├── .env.example                 # 環境變數範本
 ├── docker-compose.yml
 ├── Makefile
@@ -81,8 +90,16 @@ Knodex/
 ## 資料模型
 
 ```
+users
+  id UUID PK
+  email TEXT UNIQUE
+  firebase_uid VARCHAR UNIQUE   ← Firebase Google 登入後寫入
+  role TEXT                     ← 'user' | 'admin'（預設 'user'）
+  created_at TIMESTAMP
+
 documents
   id UUID PK
+  user_id UUID FK → users.id   ← nullable（MinIO sync 進來的孤兒文件）
   title TEXT
   file_path TEXT          ← MinIO object key（格式：{uuid}_{原始檔名}）
   status TEXT             ← unread | reading | done
@@ -128,13 +145,18 @@ embeddings                   ← 未來 pgvector 啟用後使用
 
 ## API 端點總覽
 
+### Auth
+| Method | Path | 說明 |
+|--------|------|------|
+| `POST` | `/auth/firebase` | Firebase ID Token 換取自簽 JWT（upsert User） |
+
 ### Documents
 | Method | Path | 說明 |
 |--------|------|------|
 | `POST` | `/documents` | 上傳 PDF（multipart） |
 | `GET` | `/documents` | 列出所有文件 |
 | `GET` | `/documents/{id}` | 取得單一文件 |
-| `GET` | `/documents/{id}/file` | 取得 PDF 二進位（供前端渲染） |
+| `GET` | `/documents/{id}/file-url` | 取得 MinIO presigned URL（1 小時有效） |
 | `POST` | `/documents/{id}/progress` | 更新閱讀進度與狀態 |
 | `POST` | `/documents/{id}/reprocess` | 重新觸發 ingestion |
 | `DELETE` | `/documents/{id}` | 刪除文件（同時刪除 MinIO 檔案） |
@@ -172,6 +194,7 @@ embeddings                   ← 未來 pgvector 啟用後使用
 ```
 lifespan()
  ├─ run_migrations()                 ← alembic upgrade head（建表或 no-op）
+ ├─ firebase.init_app()              ← Firebase Admin SDK 初始化（驗證 credentials JSON）
  ├─ storage.ensure_bucket()          ← 確保 MinIO bucket 存在
  └─ asyncio.create_task(
         sync_minio_to_db()           ← 非阻塞背景同步

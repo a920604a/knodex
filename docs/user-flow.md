@@ -1,6 +1,28 @@
 # User Flow
 
-## 0. 啟動程序
+## 0. 登入
+
+```
+使用者進入任意頁面
+  → [前端] AuthContext 偵測未登入 → 跳轉至 /auth
+  → AuthPage 顯示 Google 登入按鈕
+  → 使用者點擊「以 Google 帳戶繼續」
+  → Firebase signInWithPopup（Google OAuth）
+  → [前端] 取得 Firebase ID Token
+  → POST /auth/firebase { id_token }
+  → [後端] firebase-admin 驗證 Token → upsert User（by firebase_uid）
+  → 回傳自簽 JWT（24h 有效）
+  → [前端] 儲存 JWT → 導回原頁面
+
+登出：
+  → 點擊 Sidebar 底部「登出」
+  → Firebase signOut() + 清除本地 JWT
+  → 跳轉至 /auth
+```
+
+---
+
+## 1. 後端啟動程序
 
 ```
 後端啟動
@@ -16,7 +38,7 @@
 
 ---
 
-## 1. 上傳 PDF
+## 2. 上傳 PDF
 
 ```
 使用者
@@ -39,14 +61,15 @@
 
 ---
 
-## 2. 閱讀 PDF
+## 3. 閱讀 PDF
 
 ```
 使用者
   → 在文件列表點擊文件
   → 進入閱讀器頁面（/reader/:id）
   → [前端] GET /documents/{id}（取得 metadata）
-  → [前端] GET /documents/{id}/file（從 MinIO 串流 PDF bytes → react-pdf 渲染）
+  → [前端] GET /documents/{id}/file-url（帶 JWT）→ 後端回傳 { url: presigned URL }
+  → [前端] <Viewer fileUrl={presignedUrl}> 直接從 MinIO 串流（支援 Range requests）
   → 從上次閱讀頁面開始（或第一頁）
 
 翻頁：
@@ -62,7 +85,7 @@
 
 ---
 
-## 3. 建立畫線
+## 4. 建立畫線
 
 ```
 使用者
@@ -83,7 +106,7 @@
 
 ---
 
-## 4. 管理畫線筆記
+## 5. 管理畫線筆記
 
 ```
 使用者
@@ -102,7 +125,7 @@
 
 ---
 
-## 5. 刪除文件
+## 6. 刪除文件
 
 ```
 使用者
@@ -115,7 +138,7 @@
 
 ---
 
-## 6. 管理標籤
+## 7. 管理標籤
 
 ```
 進入標籤管理頁（/tags）
@@ -143,7 +166,7 @@
 
 ---
 
-## 7. 搜尋
+## 8. 搜尋
 
 ```
 全域搜尋（/search 頁面）：
@@ -164,7 +187,7 @@
 
 ---
 
-## 8. 重新解析 PDF
+## 9. 重新解析 PDF
 
 ```
 （當 PDF 解析失敗或 total_pages 未更新時）
@@ -182,7 +205,8 @@
 
 | 路由 | 頁面 | 主要功能 |
 |------|------|---------|
-| `/` | DocumentListPage | 文件列表、上傳 PDF |
-| `/reader/:id` | ReaderPage | PDF 閱讀、建立畫線、畫線側欄 |
-| `/search` | SearchPage | 全域搜尋文件與畫線 |
+| `/auth` | AuthPage | Google 登入（未登入時所有路由重導至此） |
+| `/` | LibraryPage | 文件列表、上傳 PDF |
+| `/reader/:id` | ReaderPage | PDF 閱讀（presigned URL）、建立畫線、畫線側欄 |
+| `/query` | QueryPage | 全域搜尋文件與畫線 |
 | `/tags` | TagManager | 標籤樹管理 |
