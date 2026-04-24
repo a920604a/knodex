@@ -18,7 +18,7 @@ def _parse_title(key: str) -> str:
 
 async def sync_minio_to_db() -> None:
     try:
-        minio_keys = set(storage.list_objects())
+        minio_keys = {k for k in storage.list_objects() if k.endswith(".pdf")}
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(Document.file_path))
