@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 const Icons = {
   library: (
@@ -36,9 +37,35 @@ const Icons = {
   ),
 };
 
+const themeIcons: Record<string, React.ReactNode> = {
+  light: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="3"/>
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
+    </svg>
+  ),
+  dark: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13.5 10A6 6 0 0 1 6 2.5a6 6 0 1 0 7.5 7.5z"/>
+    </svg>
+  ),
+  system: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="2" width="14" height="10" rx="2"/>
+      <path d="M5 15h6M8 12v3"/>
+    </svg>
+  ),
+};
+
+const themeLabels: Record<string, string> = { light: "淺色", dark: "深色", system: "跟隨系統" };
+const themeOrder: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
+
 export default function Sidebar() {
   const { pathname } = useLocation();
   const { isAdmin, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
+
+  const nextTheme = themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length];
 
   const nav = [
     { to: "/", label: "書庫", icon: Icons.library },
@@ -64,9 +91,19 @@ export default function Sidebar() {
           </li>
         ))}
       </ul>
-      <button className="btn btn--ghost btn--sm" onClick={logout} style={{ marginTop: "auto", alignSelf: "flex-start" }}>
-        登出
-      </button>
+      <div className="sidebar__footer">
+        <button
+          className="btn btn--ghost btn--sm sidebar__theme-btn"
+          onClick={() => setTheme(nextTheme)}
+          title={`切換至${themeLabels[nextTheme]}`}
+        >
+          {themeIcons[theme]}
+          <span>{themeLabels[theme]}</span>
+        </button>
+        <button className="btn btn--ghost btn--sm" onClick={logout}>
+          登出
+        </button>
+      </div>
     </aside>
   );
 }
